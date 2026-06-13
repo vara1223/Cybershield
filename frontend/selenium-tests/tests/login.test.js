@@ -33,8 +33,8 @@ describe('CyberShield Login E2E Test', function() {
 
             console.log("Waiting for email input...");
             const emailInput = await driver.wait(
-                until.elementLocated(By.xpath('//input[@data-testid="email"] | //input[@placeholder="Email"] | //*[@placeholder="Email"] | //*[@data-testid="email"]')), 
-                20000, 
+                until.elementLocated(By.css('[data-testid="email"]')),
+                20000,
                 'Email input element not found'
             );
             await driver.wait(until.elementIsVisible(emailInput), 10000);
@@ -43,8 +43,8 @@ describe('CyberShield Login E2E Test', function() {
 
             console.log("Waiting for password input...");
             const passInput = await driver.wait(
-                until.elementLocated(By.xpath('//input[@data-testid="password"] | //input[@placeholder="Password"] | //*[@placeholder="Password"] | //*[@data-testid="password"]')), 
-                20000, 
+                until.elementLocated(By.css('[data-testid="password"]')),
+                20000,
                 'Password input element not found'
             );
             await passInput.clear();
@@ -52,16 +52,16 @@ describe('CyberShield Login E2E Test', function() {
 
             console.log("Waiting for login button...");
             const loginBtn = await driver.wait(
-                until.elementLocated(By.xpath('//*[@data-testid="login-button"] | //*[text()="Log In"]')), 
-                20000, 
+                until.elementLocated(By.css('[data-testid="login-button"]')),
+                20000,
                 'Login button not found'
             );
             await loginBtn.click();
 
             console.log("Waiting for dashboard...");
             const quickScanText = await driver.wait(
-                until.elementLocated(By.xpath('//*[contains(text(), "Quick scan")] | //*[text()="Scan"]')), 
-                20000, 
+                until.elementLocated(By.xpath('//*[contains(text(), "Quick scan")] | //*[text()="Scan"]')),
+                20000,
                 'Dashboard not found after login'
             );
             assert.ok(quickScanText, 'Quick scan section should be visible after login');
