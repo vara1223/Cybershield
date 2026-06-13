@@ -29,3 +29,5 @@ web-build/
 
 # Excel test reports
 *.xlsx
+!backend/testreports/*.xlsx
+
