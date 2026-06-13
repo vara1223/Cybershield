@@ -1,13 +1,13 @@
 {
   "name": "cybershield",
   "version": "1.0.0",
-  "homepage": "https://vara1223.github.io/Cybershield",
+  "homepage": "https://vara1223.github.io/Cybershield/",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "predeploy": "npx expo export -p web",
+    "predeploy": "npx expo export --platform web",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
