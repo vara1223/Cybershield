@@ -18,6 +18,11 @@ jobs:
       with:
         node-version: '20.x'
 
+    - name: Install Chromedriver and Chromium
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y chromium-browser chromium-chromedriver
+
     - name: Install Frontend Dependencies
       working-directory: ./frontend
       run: npm install
@@ -35,8 +40,11 @@ jobs:
       run: |
         npm install -g serve
         serve -s dist -l 8081 &
-        sleep 5
+        sleep 10
+        curl -f http://localhost:8081 || exit 1
 
     - name: Run Selenium Tests
       working-directory: ./frontend/selenium-tests
       run: npm run login
+      env:
+        DEBUG: '*'
