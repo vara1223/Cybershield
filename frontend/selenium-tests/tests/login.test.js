@@ -32,22 +32,38 @@ describe('CyberShield Login E2E Test', function() {
             await driver.sleep(5000); 
 
             console.log("Waiting for email input...");
-            const emailInput = await driver.wait(until.elementLocated(By.xpath('//*[@data-testid="email" or @placeholder="Email"]')), 15000);
-            await driver.wait(until.elementIsVisible(emailInput), 5000);
+            const emailInput = await driver.wait(
+                until.elementLocated(By.xpath('//input[@data-testid="email"] | //input[@placeholder="Email"] | //*[@placeholder="Email"] | //*[@data-testid="email"]')), 
+                20000, 
+                'Email input element not found'
+            );
+            await driver.wait(until.elementIsVisible(emailInput), 10000);
             await emailInput.clear();
             await emailInput.sendKeys('devivaraprasadm5032.sse@saveetha.com');
 
             console.log("Waiting for password input...");
-            const passInput = await driver.wait(until.elementLocated(By.xpath('//*[@data-testid="password" or @placeholder="Password"]')), 10000);
+            const passInput = await driver.wait(
+                until.elementLocated(By.xpath('//input[@data-testid="password"] | //input[@placeholder="Password"] | //*[@placeholder="Password"] | //*[@data-testid="password"]')), 
+                20000, 
+                'Password input element not found'
+            );
             await passInput.clear();
             await passInput.sendKeys('1234567');
 
             console.log("Waiting for login button...");
-            const loginBtn = await driver.wait(until.elementLocated(By.xpath('//*[@data-testid="login-button" or text()="Log In"]')), 10000);
+            const loginBtn = await driver.wait(
+                until.elementLocated(By.xpath('//*[@data-testid="login-button"] | //*[text()="Log In"]')), 
+                20000, 
+                'Login button not found'
+            );
             await loginBtn.click();
 
             console.log("Waiting for dashboard...");
-            const quickScanText = await driver.wait(until.elementLocated(By.xpath('//*[contains(text(), "Quick scan") or text()="Scan"]')), 15000);
+            const quickScanText = await driver.wait(
+                until.elementLocated(By.xpath('//*[contains(text(), "Quick scan")] | //*[text()="Scan"]')), 
+                20000, 
+                'Dashboard not found after login'
+            );
             assert.ok(quickScanText, 'Quick scan section should be visible after login');
         } catch (error) {
             console.error('Test failed with error:', error.message);
