@@ -31,3 +31,5 @@ web-build/
 *.xlsx
 !backend/testreports/*.xlsx
 
+# Log files
+*.log
