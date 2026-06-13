@@ -22,6 +22,8 @@ backend/cybershield.db
 .expo/
 frontend/.expo/
 web-build/
+frontend/dist/
+frontend/selenium-tests/node_modules/
 
 # Editor files
 .idea/

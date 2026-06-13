@@ -1,12 +1,14 @@
 {
   "name": "cybershield",
   "version": "1.0.0",
-  "main": "App.js",
+  "homepage": "https://vara1223.github.io/Cybershield",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "predeploy": "npx expo export -p web",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.2.3",
@@ -53,6 +55,7 @@
     "babel-preset-expo": "~54.0.10",
     "dotenv": "^16.4.3",
     "exceljs": "^3.4.0",
+    "gh-pages": "^6.3.0",
     "webdriverio": "^9.28.0"
   }
 }

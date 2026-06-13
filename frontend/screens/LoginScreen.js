@@ -59,6 +59,7 @@ export default function LoginScreen({ navigation }) {
         <Text style={styles.subtitle}>Sign in to your CyberShield account and continue protecting your scans.</Text>
 
         <TextInput
+          testID="email"
           placeholder="Email"
           value={email}
           onChangeText={setEmail}
@@ -69,6 +70,7 @@ export default function LoginScreen({ navigation }) {
         />
 
         <TextInput
+          testID="password"
           placeholder="Password"
           value={password}
           onChangeText={setPassword}
@@ -79,7 +81,7 @@ export default function LoginScreen({ navigation }) {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={authLoading}>
+        <TouchableOpacity testID="login-button" style={styles.button} onPress={handleLogin} disabled={authLoading}>
           {authLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log In</Text>}
         </TouchableOpacity>
 
