@@ -1,0 +1,43 @@
+# ============================================================================
+#  CyberShield Backend — Python dependencies
+#  Install:  pip install -r requirements.txt
+#  Python 3.11–3.13 supported. A virtual environment is recommended.
+# ============================================================================
+
+# ── Web framework / server ──────────────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+python-dotenv==1.0.1          # loads backend/.env (OPENAI_API_KEY)
+
+# ── Database (SQLite, file-based — no server needed) ────────────────────────
+sqlalchemy==2.0.35
+
+# ── Image handling (screenshot + QR decode) ─────────────────────────────────
+Pillow==10.4.0
+# QR decode from uploaded images (bundled zbar wheel on Windows)
+#   macOS:  brew install zbar     |    Ubuntu:  sudo apt install libzbar0
+pyzbar==0.1.9
+
+# ── ML: URL phishing classifier (scikit-learn LogisticRegression) ───────────
+numpy>=2.0.0
+scikit-learn>=1.6.0
+
+# ── ML: Screenshot text classifier (HuggingFace BERT-tiny SMS-spam) ─────────
+# Model auto-downloads on first /analyze/screenshot call (~17 MB, cached).
+transformers>=4.40.0
+torch>=2.1.0                  # CPU build is fine:
+                              #   pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# ── OpenAI API: Whisper-1 (voice STT) + GPT-4o Vision (screenshot OCR) ───────
+# PRIMARY for voice + screenshot OCR. Requires OPENAI_API_KEY in backend/.env.
+openai>=1.51.0
+
+# ── Optional fallbacks (only used if the cloud/primary path is unavailable) ──
+# Local Whisper STT — used only when OPENAI_API_KEY is missing:
+openai-whisper>=20231117
+static-ffmpeg>=2.5            # bundles ffmpeg, no system install needed
+# Tesseract OCR — used for screenshots only if installed (else GPT-4o Vision):
+#   Windows: https://github.com/UB-Mannheim/tesseract/wiki
+#   Ubuntu:  sudo apt install tesseract-ocr   |   macOS: brew install tesseract
+pytesseract>=0.3.10

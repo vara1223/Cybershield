@@ -1,0 +1,72 @@
+[
+  {
+    "endpoint": "/analyze/url",
+    "method": "POST",
+    "role": "anonymous",
+    "status": 0,
+    "expected_status": "429",
+    "finding": true,
+    "severity": "MEDIUM",
+    "response_time_ms": 2104,
+    "test_category": "08_rate_limit",
+    "note": "NO RATE LIMIT: all 30 requests succeeded without throttling",
+    "body_snippet": "",
+    "timestamp": "2026-06-13T05:01:55.272189+00:00"
+  },
+  {
+    "endpoint": "/analyze/otp",
+    "method": "POST",
+    "role": "anonymous",
+    "status": 0,
+    "expected_status": "429",
+    "finding": true,
+    "severity": "MEDIUM",
+    "response_time_ms": 2099,
+    "test_category": "08_rate_limit",
+    "note": "NO RATE LIMIT: all 30 requests succeeded without throttling",
+    "body_snippet": "",
+    "timestamp": "2026-06-13T05:02:07.878487+00:00"
+  },
+  {
+    "endpoint": "/admin/stats",
+    "method": "GET",
+    "role": "anonymous",
+    "status": 0,
+    "expected_status": "429",
+    "finding": true,
+    "severity": "MEDIUM",
+    "response_time_ms": 2064,
+    "test_category": "08_rate_limit",
+    "note": "NO RATE LIMIT: all 30 requests succeeded without throttling",
+    "body_snippet": "",
+    "timestamp": "2026-06-13T05:02:20.290993+00:00"
+  },
+  {
+    "endpoint": "/admin/logs",
+    "method": "GET",
+    "role": "anonymous",
+    "status": 0,
+    "expected_status": "429",
+    "finding": true,
+    "severity": "MEDIUM",
+    "response_time_ms": 2045,
+    "test_category": "08_rate_limit",
+    "note": "NO RATE LIMIT: all 30 requests succeeded without throttling",
+    "body_snippet": "",
+    "timestamp": "2026-06-13T05:02:32.598864+00:00"
+  },
+  {
+    "endpoint": "/admin/export/csv",
+    "method": "GET",
+    "role": "anonymous",
+    "status": 0,
+    "expected_status": "429",
+    "finding": true,
+    "severity": "MEDIUM",
+    "response_time_ms": 2205,
+    "test_category": "08_rate_limit",
+    "note": "NO RATE LIMIT: all 30 requests succeeded without throttling",
+    "body_snippet": "",
+    "timestamp": "2026-06-13T05:02:45.843826+00:00"
+  }
+]

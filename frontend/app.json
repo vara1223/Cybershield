@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "CyberShield",
+    "slug": "cybershield",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cybershield.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "CyberShield uses the camera to scan QR codes for fraud detection.",
+        "NSMicrophoneUsageDescription": "CyberShield uses the microphone to record suspicious calls for voice scam analysis.",
+        "NSPhotoLibraryUsageDescription": "CyberShield accesses your photos to scan screenshots for scam detection."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.cybershield.app",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow CyberShield to access your camera for QR code scanning."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow CyberShield to access your photos for screenshot analysis."
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow CyberShield to access your microphone for voice scam detection."
+        }
+      ],
+      "./plugins/withNetworkSecurityConfig"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e7944325-e31d-4fd8-a785-aa4ad40e417d"
+      }
+    },
+    "owner": "vara13"
+  }
+}

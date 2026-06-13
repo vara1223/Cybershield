@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/venv/
+venv/
+
+# Python caching
+__pycache__/
+backend/__pycache__/
+*.pyc
+
+# Local environment variables containing credentials
+.env
+backend/.env
+frontend/.env
+
+# Local Databases
+*.db
+backend/cybershield.db
+
+# Expo
+.expo/
+frontend/.expo/
+web-build/
+
+# Editor files
+.idea/
+.vscode/
+
+# Excel test reports
+*.xlsx
