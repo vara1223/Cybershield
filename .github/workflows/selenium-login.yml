@@ -48,3 +48,5 @@ jobs:
       run: npm run login
       env:
         DEBUG: '*'
+        CHROME_BIN: /usr/bin/chromium-browser
+        CHROMEDRIVER_PATH: /usr/bin/chromedriver

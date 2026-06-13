@@ -10,6 +10,10 @@ describe('CyberShield Login E2E Test', function() {
         options.addArguments('--no-sandbox');
         options.addArguments('--disable-dev-shm-usage');
         
+        if (process.env.CHROME_BIN) {
+            options.setChromeBinaryPath(process.env.CHROME_BIN);
+        }
+        
         driver = await new Builder()
             .forBrowser('chrome')
             .setChromeOptions(options)
