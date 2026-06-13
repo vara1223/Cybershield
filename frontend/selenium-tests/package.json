@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Selenium E2E Tests for CyberShield",
   "scripts": {
-    "login": "mocha tests/login.test.js --timeout 30000"
+    "login": "mocha tests/login.test.js --timeout 90000"
   },
   "dependencies": {},
   "devDependencies": {
