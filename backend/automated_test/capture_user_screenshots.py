@@ -50,8 +50,6 @@ def capture_user_screenshots():
             (By.XPATH, "//*[text()='Log In']")
         ))
         login_btn.click()
-        
-        # Wait for navigation
         time.sleep(5) 
         
         # 4. User Dashboard / Main Screen
@@ -59,17 +57,37 @@ def capture_user_screenshots():
         driver.save_screenshot(path2)
         print("Saved: 06_user_dashboard.png")
         
-        # Check if there are tabs or other pages to screenshot
-        # For example, "Scan" or "Settings" tabs if they exist
+        # 5. History Tab
+        print("Clicking History tab...")
         try:
-            scan_tab = driver.find_element(By.XPATH, "//*[text()='Scan']")
-            scan_tab.click()
+            history_tab = driver.find_element(By.XPATH, "//*[text()='History']")
+            history_tab.click()
             time.sleep(2)
-            path3 = os.path.join(screenshot_dir, "07_user_scan_tab.png")
-            driver.save_screenshot(path3)
-            print("Saved: 07_user_scan_tab.png")
+            path_hist = os.path.join(screenshot_dir, "08_user_history_tab.png")
+            driver.save_screenshot(path_hist)
+            print("Saved: 08_user_history_tab.png")
         except:
-            print("Scan tab not found or not clickable.")
+            print("History tab not found.")
+
+        # 6. Tools via Home Screen (Go back to Home)
+        print("Going back to Home tab...")
+        try:
+            home_tab = driver.find_element(By.XPATH, "//*[text()='Home']")
+            home_tab.click()
+            time.sleep(2)
+        except:
+            pass
+
+        print("Clicking QR code tool...")
+        try:
+            qr_tool = driver.find_element(By.XPATH, "//*[text()='QR code']")
+            qr_tool.click()
+            time.sleep(2)
+            path_tool = os.path.join(screenshot_dir, "09_user_tool_qrcode.png")
+            driver.save_screenshot(path_tool)
+            print("Saved: 09_user_tool_qrcode.png")
+        except:
+            print("QR code tool not found.")
             
         print("All user demo screenshots successfully captured!")
 
