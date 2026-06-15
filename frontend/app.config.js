@@ -4,6 +4,11 @@ dotenv.config();
 
 module.exports = ({ config }) => ({
   ...config,
+  plugins: [
+    "expo-build-properties",
+    "expo-font",
+    "expo-status-bar",
+  ],
   extra: {
     ...(config.extra || {}),
     SUPABASE_URL: process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL,
