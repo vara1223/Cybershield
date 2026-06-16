@@ -31,12 +31,27 @@ function resolveBaseUrl() {
   return FALLBACK_URL;
 }
 
-const BASE_URL = resolveBaseUrl();
+export const BASE_URL = resolveBaseUrl();
+
+const ADMIN_API_KEY =
+  Constants.expoConfig?.extra?.ADMIN_API_KEY ||
+  Constants.manifest?.extra?.ADMIN_API_KEY ||
+  process.env.EXPO_PUBLIC_ADMIN_API_KEY ||
+  '';
 
 const client = axios.create({
   baseURL: BASE_URL,
   timeout: 30000,
   headers: { 'Content-Type': 'application/json' },
+});
+
+client.interceptors.request.use((config) => {
+  if (config.url && config.url.startsWith('/admin') && ADMIN_API_KEY) {
+    config.headers['X-Admin-Key'] = ADMIN_API_KEY;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
 });
 
 /**

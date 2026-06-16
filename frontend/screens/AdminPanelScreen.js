@@ -8,7 +8,8 @@ import TextureBackground from '../components/TextureBackground';
 import RecentScanRow from '../components/RecentScanRow';
 import WeeklyChart from '../components/WeeklyChart';
 import { MOCK_STATS } from '../services/mockData';
-import api from '../services/api';
+import api, { BASE_URL } from '../services/api';
+import Constants from 'expo-constants';
 
 export const ADMIN_PIN = '1234';
 
@@ -48,7 +49,13 @@ export default function AdminPanelScreen({ navigation }) {
   }
 
   function handleExportCSV() {
-    Linking.openURL('http://192.168.0.182:8000/admin/export/csv').catch(() =>
+    const adminKey =
+      Constants.expoConfig?.extra?.ADMIN_API_KEY ||
+      Constants.manifest?.extra?.ADMIN_API_KEY ||
+      process.env.EXPO_PUBLIC_ADMIN_API_KEY ||
+      '';
+    const exportUrl = `${BASE_URL}/admin/export/csv${adminKey ? `?api_key=${encodeURIComponent(adminKey)}` : ''}`;
+    Linking.openURL(exportUrl).catch(() =>
       Alert.alert('Export unavailable', 'Backend not connected. Connect to the FastAPI server to export logs.')
     );
   }

@@ -7,11 +7,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2060,
+    "response_time_ms": 2061,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: System health check | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:52:53.643819+00:00"
+    "timestamp": "2026-06-16T05:07:30.575499+00:00"
   },
   {
     "endpoint": "/analyze/url",
@@ -21,11 +21,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2123,
+    "response_time_ms": 2129,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: URL scan | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:52:55.767634+00:00"
+    "timestamp": "2026-06-16T05:07:32.705087+00:00"
   },
   {
     "endpoint": "/analyze/screenshot",
@@ -35,11 +35,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2046,
+    "response_time_ms": 2064,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: Screenshot OCR scan | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:52:57.814461+00:00"
+    "timestamp": "2026-06-16T05:07:34.769128+00:00"
   },
   {
     "endpoint": "/analyze/qr",
@@ -49,11 +49,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2062,
+    "response_time_ms": 2051,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: QR code scan | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:52:59.877385+00:00"
+    "timestamp": "2026-06-16T05:07:36.821106+00:00"
   },
   {
     "endpoint": "/analyze/otp",
@@ -63,11 +63,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2038,
+    "response_time_ms": 2065,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: OTP message scan | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:01.916414+00:00"
+    "timestamp": "2026-06-16T05:07:38.886696+00:00"
   },
   {
     "endpoint": "/analyze/upi",
@@ -77,11 +77,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2033,
+    "response_time_ms": 2050,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: UPI fraud scan | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:03.950315+00:00"
+    "timestamp": "2026-06-16T05:07:40.937576+00:00"
   },
   {
     "endpoint": "/analyze/voice",
@@ -91,31 +91,31 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2060,
+    "response_time_ms": 2055,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: Voice audio scan | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:06.011210+00:00"
+    "timestamp": "2026-06-16T05:07:42.993148+00:00"
   },
   {
     "endpoint": "/admin/logs",
     "method": "GET",
     "role": "public",
-    "status": 200,
+    "status": 401,
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2059,
+    "response_time_ms": 2058,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: Admin: paginated scan logs | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:08.071309+00:00"
+    "timestamp": "2026-06-16T05:07:45.051762+00:00"
   },
   {
     "endpoint": "/admin/stats",
     "method": "GET",
     "role": "public",
-    "status": 200,
+    "status": 401,
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
@@ -123,21 +123,21 @@
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: Admin: aggregate stats | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:10.121977+00:00"
+    "timestamp": "2026-06-16T05:07:47.102368+00:00"
   },
   {
     "endpoint": "/admin/export/csv",
     "method": "GET",
     "role": "public",
-    "status": 200,
+    "status": 401,
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2066,
+    "response_time_ms": 2035,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: Admin: export all logs CSV | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:12.188930+00:00"
+    "timestamp": "2026-06-16T05:07:49.138937+00:00"
   },
   {
     "endpoint": "/docs",
@@ -147,11 +147,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2054,
+    "response_time_ms": 2058,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: Swagger UI | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:14.243132+00:00"
+    "timestamp": "2026-06-16T05:07:51.197387+00:00"
   },
   {
     "endpoint": "/openapi.json",
@@ -161,11 +161,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2052,
+    "response_time_ms": 2025,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: OpenAPI spec | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:16.295803+00:00"
+    "timestamp": "2026-06-16T05:07:53.223330+00:00"
   },
   {
     "endpoint": "/redoc",
@@ -175,11 +175,11 @@
     "expected_status": 200,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2060,
+    "response_time_ms": 2036,
     "test_category": "01_endpoint_discovery",
     "note": "Discovered: ReDoc UI | reachable=True",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:18.356085+00:00"
+    "timestamp": "2026-06-16T05:07:55.259728+00:00"
   },
   {
     "endpoint": "/v1/",
@@ -189,11 +189,11 @@
     "expected_status": 404,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2061,
+    "response_time_ms": 2054,
     "test_category": "01_endpoint_discovery",
     "note": "Expected 404/405",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:20.417254+00:00"
+    "timestamp": "2026-06-16T05:07:57.314127+00:00"
   },
   {
     "endpoint": "/api/",
@@ -203,112 +203,14 @@
     "expected_status": 404,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2047,
+    "response_time_ms": 2052,
     "test_category": "01_endpoint_discovery",
     "note": "Expected 404/405",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:22.465108+00:00"
+    "timestamp": "2026-06-16T05:07:59.366395+00:00"
   },
   {
     "endpoint": "/api/v1/",
-    "method": "GET",
-    "role": "public",
-    "status": 404,
-    "expected_status": 404,
-    "finding": false,
-    "severity": "INFO",
-    "response_time_ms": 2059,
-    "test_category": "01_endpoint_discovery",
-    "note": "Expected 404/405",
-    "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:24.524599+00:00"
-  },
-  {
-    "endpoint": "/.env",
-    "method": "GET",
-    "role": "public",
-    "status": 404,
-    "expected_status": 404,
-    "finding": false,
-    "severity": "INFO",
-    "response_time_ms": 2046,
-    "test_category": "01_endpoint_discovery",
-    "note": "Expected 404/405",
-    "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:26.572040+00:00"
-  },
-  {
-    "endpoint": "/config",
-    "method": "GET",
-    "role": "public",
-    "status": 404,
-    "expected_status": 404,
-    "finding": false,
-    "severity": "INFO",
-    "response_time_ms": 2042,
-    "test_category": "01_endpoint_discovery",
-    "note": "Expected 404/405",
-    "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:28.614443+00:00"
-  },
-  {
-    "endpoint": "/admin",
-    "method": "GET",
-    "role": "public",
-    "status": 404,
-    "expected_status": 404,
-    "finding": false,
-    "severity": "INFO",
-    "response_time_ms": 2051,
-    "test_category": "01_endpoint_discovery",
-    "note": "Expected 404/405",
-    "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:30.666287+00:00"
-  },
-  {
-    "endpoint": "/admin/",
-    "method": "GET",
-    "role": "public",
-    "status": 404,
-    "expected_status": 404,
-    "finding": false,
-    "severity": "INFO",
-    "response_time_ms": 2046,
-    "test_category": "01_endpoint_discovery",
-    "note": "Expected 404/405",
-    "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:32.713494+00:00"
-  },
-  {
-    "endpoint": "/admin/users",
-    "method": "GET",
-    "role": "public",
-    "status": 404,
-    "expected_status": 404,
-    "finding": false,
-    "severity": "INFO",
-    "response_time_ms": 2058,
-    "test_category": "01_endpoint_discovery",
-    "note": "Expected 404/405",
-    "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:34.773006+00:00"
-  },
-  {
-    "endpoint": "/admin/delete",
-    "method": "GET",
-    "role": "public",
-    "status": 404,
-    "expected_status": 404,
-    "finding": false,
-    "severity": "INFO",
-    "response_time_ms": 2055,
-    "test_category": "01_endpoint_discovery",
-    "note": "Expected 404/405",
-    "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:36.828526+00:00"
-  },
-  {
-    "endpoint": "/debug",
     "method": "GET",
     "role": "public",
     "status": 404,
@@ -319,7 +221,105 @@
     "test_category": "01_endpoint_discovery",
     "note": "Expected 404/405",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:38.893286+00:00"
+    "timestamp": "2026-06-16T05:08:01.432600+00:00"
+  },
+  {
+    "endpoint": "/.env",
+    "method": "GET",
+    "role": "public",
+    "status": 404,
+    "expected_status": 404,
+    "finding": false,
+    "severity": "INFO",
+    "response_time_ms": 2034,
+    "test_category": "01_endpoint_discovery",
+    "note": "Expected 404/405",
+    "body_snippet": "",
+    "timestamp": "2026-06-16T05:08:03.467218+00:00"
+  },
+  {
+    "endpoint": "/config",
+    "method": "GET",
+    "role": "public",
+    "status": 404,
+    "expected_status": 404,
+    "finding": false,
+    "severity": "INFO",
+    "response_time_ms": 2060,
+    "test_category": "01_endpoint_discovery",
+    "note": "Expected 404/405",
+    "body_snippet": "",
+    "timestamp": "2026-06-16T05:08:05.528154+00:00"
+  },
+  {
+    "endpoint": "/admin",
+    "method": "GET",
+    "role": "public",
+    "status": 404,
+    "expected_status": 404,
+    "finding": false,
+    "severity": "INFO",
+    "response_time_ms": 2042,
+    "test_category": "01_endpoint_discovery",
+    "note": "Expected 404/405",
+    "body_snippet": "",
+    "timestamp": "2026-06-16T05:08:07.571028+00:00"
+  },
+  {
+    "endpoint": "/admin/",
+    "method": "GET",
+    "role": "public",
+    "status": 404,
+    "expected_status": 404,
+    "finding": false,
+    "severity": "INFO",
+    "response_time_ms": 2067,
+    "test_category": "01_endpoint_discovery",
+    "note": "Expected 404/405",
+    "body_snippet": "",
+    "timestamp": "2026-06-16T05:08:09.640824+00:00"
+  },
+  {
+    "endpoint": "/admin/users",
+    "method": "GET",
+    "role": "public",
+    "status": 404,
+    "expected_status": 404,
+    "finding": false,
+    "severity": "INFO",
+    "response_time_ms": 2057,
+    "test_category": "01_endpoint_discovery",
+    "note": "Expected 404/405",
+    "body_snippet": "",
+    "timestamp": "2026-06-16T05:08:11.700765+00:00"
+  },
+  {
+    "endpoint": "/admin/delete",
+    "method": "GET",
+    "role": "public",
+    "status": 404,
+    "expected_status": 404,
+    "finding": false,
+    "severity": "INFO",
+    "response_time_ms": 2056,
+    "test_category": "01_endpoint_discovery",
+    "note": "Expected 404/405",
+    "body_snippet": "",
+    "timestamp": "2026-06-16T05:08:13.758419+00:00"
+  },
+  {
+    "endpoint": "/debug",
+    "method": "GET",
+    "role": "public",
+    "status": 404,
+    "expected_status": 404,
+    "finding": false,
+    "severity": "INFO",
+    "response_time_ms": 2077,
+    "test_category": "01_endpoint_discovery",
+    "note": "Expected 404/405",
+    "body_snippet": "",
+    "timestamp": "2026-06-16T05:08:15.836226+00:00"
   },
   {
     "endpoint": "/internal",
@@ -329,11 +329,11 @@
     "expected_status": 404,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2049,
+    "response_time_ms": 2064,
     "test_category": "01_endpoint_discovery",
     "note": "Expected 404/405",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:40.943147+00:00"
+    "timestamp": "2026-06-16T05:08:17.901545+00:00"
   },
   {
     "endpoint": "/metrics",
@@ -343,10 +343,10 @@
     "expected_status": 404,
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2036,
+    "response_time_ms": 2069,
     "test_category": "01_endpoint_discovery",
     "note": "Expected 404/405",
     "body_snippet": "",
-    "timestamp": "2026-06-13T04:53:42.980134+00:00"
+    "timestamp": "2026-06-16T05:08:19.970639+00:00"
   }
 ]
