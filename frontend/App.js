@@ -6,6 +6,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './context/AuthContext';
 
+if (Platform.OS === 'web') {
+  const style = document.createElement('style');
+  style.type = 'text/css';
+  style.appendChild(document.createTextNode(`
+    body, input, select, textarea, button {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+      font-size: 14px;
+    }
+  `));
+  document.head.appendChild(style);
+}
+
 function App() {
   if (Platform.OS === 'web') {
     return (

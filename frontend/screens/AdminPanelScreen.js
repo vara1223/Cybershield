@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Linking, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Alert, Linking, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useScanStore from '../store/useScanStore';
@@ -32,6 +32,25 @@ export default function AdminPanelScreen({ navigation }) {
       api.getAdminStats().then(setStats).catch(() => {});
     }
   }, [adminAuthenticated]);
+
+  useEffect(() => {
+    if (adminAuthenticated) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key >= '0' && e.key <= '9') {
+        handleDigit(e.key);
+      } else if (e.key === 'Backspace') {
+        setPinInput((p) => p.slice(0, -1));
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [pinInput, adminAuthenticated]);
 
   function handleDigit(d) {
     if (pinInput.length >= 4) return;
