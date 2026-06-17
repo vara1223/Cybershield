@@ -70,8 +70,17 @@ def capture_demo_screenshots():
 
         # 4. Lock panel back
         print("Locking dashboard...")
+        try:
+            diag_tab = wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//*[contains(text(), 'Diagnostics')]")
+            ))
+            diag_tab.click()
+            time.sleep(1)
+        except Exception as tab_e:
+            print(f"Failed to click Diagnostics tab: {tab_e}")
+
         lock_btn = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//*[contains(text(), 'Lock panel')]")
+            (By.XPATH, "//*[contains(text(), 'Lock Admin Console')]")
         ))
         try:
             lock_btn.click()

@@ -106,7 +106,7 @@ print(f"  Findings    : {len(findings)}")
 print(f"{'='*60}")
 for sev in ["CRITICAL","HIGH","MEDIUM","LOW","INFO"]:
     recs = by_sev.get(sev, [])
-    sym = {"CRITICAL":"[FAIL]","HIGH":"[FAIL]","MEDIUM":"⚠","LOW":"⚠","INFO":"[OK]  "}.get(sev,"?")
+    sym = {"CRITICAL":"[FAIL]","HIGH":"[FAIL]","MEDIUM":"[WARN]","LOW":"[WARN]","INFO":"[OK]  "}.get(sev,"?")
     if recs:
         print(f"  {sym} {sev}: {len(recs)}")
         for r in recs:

@@ -97,10 +97,25 @@ def run_real_selenium_tests():
             
             # Wait for admin authenticated dashboard view to render
             threat_overview = wait.until(EC.presence_of_element_located(
-                (By.XPATH, "//*[contains(text(), 'Threat intelligence overview')]")
+                (By.XPATH, "//*[contains(text(), 'Admin Panel')]")
             ))
             log_result(tc_id, category, desc, "numpad keys 1-4", "PASS", "Dashboard authenticated successfully with PIN '1234'.")
         except Exception as e:
+            import traceback
+            traceback.print_exc()
+            try:
+                print("=== BROWSER CONSOLE LOGS ===")
+                for entry in driver.get_log('browser'):
+                    print(entry)
+                print("============================")
+            except Exception as le:
+                print("Failed to get browser logs:", le)
+            try:
+                print("=== PIN PAGE DOM SOURCE ===")
+                print(driver.page_source)
+                print("===========================")
+            except:
+                pass
             log_result(tc_id, category, desc, "numpad keys 1-4", "FAIL", f"Failed to authenticate: {str(e)[:100]}")
 
         # TC-WEB-004: Dashboard Verification
@@ -108,9 +123,9 @@ def run_real_selenium_tests():
         category = "Dashboard UI"
         desc = "Verify presence of stats cards (Total scans, Threats, Safe rate)"
         try:
-            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Total scans')]")))
-            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Threats detected')]")))
-            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Safe rate')]")))
+            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Total Scans')]")))
+            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Threats Blocked')]")))
+            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Safe Rate')]")))
             log_result(tc_id, category, desc, "xpath(Total scans / Threats)", "PASS", "All standard stats cards are successfully displayed in dashboard.")
         except Exception as e:
             log_result(tc_id, category, desc, "xpath(Total scans / Threats)", "FAIL", f"Failed to verify cards: {str(e)[:100]}")
@@ -120,18 +135,25 @@ def run_real_selenium_tests():
         category = "Dashboard UI"
         desc = "Verify weekly activity chart container is present"
         try:
-            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'SCANS THIS WEEK')]")))
-            log_result(tc_id, category, desc, "xpath(SCANS THIS WEEK)", "PASS", "Weekly activity chart container verified.")
+            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'WEEKLY THREAT VOLUME')]")))
+            log_result(tc_id, category, desc, "xpath(WEEKLY THREAT VOLUME)", "PASS", "Weekly activity chart container verified.")
         except Exception as e:
-            log_result(tc_id, category, desc, "xpath(SCANS THIS WEEK)", "FAIL", f"Chart not found: {str(e)[:100]}")
+            log_result(tc_id, category, desc, "xpath(WEEKLY THREAT VOLUME)", "FAIL", f"Chart not found: {str(e)[:100]}")
 
         # TC-WEB-006: Lock Dashboard / Logout
         tc_id = "TC-WEB-006"
         category = "Navigation"
         desc = "Click 'Lock panel' button in Admin and verify redirection back to PIN screen"
         try:
+            # Click on Diagnostics tab to show the lock button
+            diag_tab = wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//*[contains(text(), 'Diagnostics')]")
+            ))
+            diag_tab.click()
+            time.sleep(1)
+
             lock_btn = wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//*[contains(text(), 'Lock panel')]")
+                (By.XPATH, "//*[contains(text(), 'Lock Admin Console')]")
             ))
             # Try normal click, fallback to JS executor click
             try:
@@ -142,9 +164,9 @@ def run_real_selenium_tests():
             time.sleep(1)
             # Verify we are back on the Passkey entry screen
             wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Enter 4-digit Passkey')]")))
-            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Lock panel')])", "PASS", "Dashboard successfully locked and redirected to Passkey screen.")
+            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Lock Admin Console')])", "PASS", "Dashboard successfully locked and redirected to Passkey screen.")
         except Exception as e:
-            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Lock panel')])", "FAIL", f"Failed to lock dashboard: {str(e)[:100]}")
+            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Lock Admin Console')])", "FAIL", f"Failed to lock dashboard: {str(e)[:100]}")
 
     except Exception as e:
         print(f"Critical execution error: {e}")

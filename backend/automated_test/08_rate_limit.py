@@ -7,6 +7,11 @@ import sys, time, threading
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).parent))
 from dast_helpers import http, record, save, sym
 
+from dotenv import load_dotenv
+import os
+load_dotenv()
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://localhost:8000"
 CAT  = "08_rate_limit"
 
@@ -31,7 +36,10 @@ for method, path, body in ENDPOINTS:
     lock     = threading.Lock()
 
     def fire(_):
-        status, raw, ms = http(method, url, body=body, timeout=8)
+        hdrs = {}
+        if path.startswith("/admin") and ADMIN_API_KEY:
+            hdrs["X-Admin-Key"] = ADMIN_API_KEY
+        status, raw, ms = http(method, url, body=body, headers=hdrs, timeout=8)
         with lock:
             statuses.append(status)
             times.append(ms)

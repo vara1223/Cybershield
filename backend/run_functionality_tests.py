@@ -30,13 +30,21 @@ except ImportError:
     subprocess.run([sys.executable, "-m", "pip", "install", "Pillow"], check=True)
     from PIL import Image, ImageDraw
 
+from dotenv import load_dotenv
+load_dotenv()
+import os
+ADMIN_API_KEY = os.getenv("ADMIN_API_KEY", "")
+
 BASE_URL = "http://localhost:8000"
 
 def post_request(endpoint, payload):
     url = f"{BASE_URL}{endpoint}"
     data = json.dumps(payload).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if endpoint.startswith("/admin") and ADMIN_API_KEY:
+        headers["X-Admin-Key"] = ADMIN_API_KEY
     req = urllib.request.Request(
-        url, data=data, headers={"Content-Type": "application/json"}, method="POST"
+        url, data=data, headers=headers, method="POST"
     )
     try:
         with urllib.request.urlopen(req) as response:
@@ -53,7 +61,10 @@ def post_request(endpoint, payload):
 
 def get_request(endpoint):
     url = f"{BASE_URL}{endpoint}"
-    req = urllib.request.Request(url, method="GET")
+    headers = {}
+    if endpoint.startswith("/admin") and ADMIN_API_KEY:
+        headers["X-Admin-Key"] = ADMIN_API_KEY
+    req = urllib.request.Request(url, headers=headers, method="GET")
     try:
         with urllib.request.urlopen(req) as response:
             res_data = response.read().decode("utf-8")

@@ -13,7 +13,12 @@ try:
     import pytesseract
     import sys
     if sys.platform == "win32":
-        pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        # Configurable via TESSERACT_PATH env var; falls back to standard Windows install path
+        _tess_path = os.getenv(
+            "TESSERACT_PATH",
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        )
+        pytesseract.pytesseract.tesseract_cmd = _tess_path
     pytesseract.get_tesseract_version()
     TESSERACT_AVAILABLE = True
 except Exception:
