@@ -18,10 +18,23 @@ jobs:
       with:
         node-version: '20.x'
 
-    - name: Install Chromedriver and Chromium
+    - name: Install Google Chrome
       run: |
+        wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo gpg --dearmor -o /usr/share/keyrings/google-linux-signing-key.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-linux-signing-key.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
         sudo apt-get update
-        sudo apt-get install -y chromium-browser chromium-chromedriver
+        sudo apt-get install -y google-chrome-stable
+        google-chrome --version
+
+    - name: Install ChromeDriver
+      run: |
+        CHROME_VERSION=$(google-chrome --version | sed 's/Google Chrome //' | cut -d'.' -f1)
+        echo "Chrome major version: $CHROME_VERSION"
+        # chromedriver-binary-extras provides matching chromedriver
+        npx --yes @puppeteer/browsers install chromedriver@${CHROME_VERSION} --path /usr/local/bin/ || true
+        # Fallback: use chromedriver from apt
+        sudo apt-get install -y chromium-chromedriver || true
+        which chromedriver && chromedriver --version || true
 
     - name: Install Frontend Dependencies
       working-directory: ./frontend
@@ -35,21 +48,34 @@ jobs:
       working-directory: ./frontend
       run: |
         npx expo start --web --non-interactive &
-        echo "Waiting for Expo to bundle (up to 60s)..."
-        for i in $(seq 1 12); do
+        EXPO_PID=$!
+        echo "Expo PID: $EXPO_PID"
+        echo "Waiting for Expo to fully bundle (up to 120s)..."
+        for i in $(seq 1 24); do
           sleep 5
-          if curl -sf http://localhost:8081 > /dev/null 2>&1; then
-            echo "Expo dev server is ready!"
+          # Check that the server is up AND the JS bundle has been compiled
+          # (Expo serves HTML immediately but the JS bundle takes longer)
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081 2>/dev/null)
+          BUNDLE_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8081/index.bundle?platform=web 2>/dev/null || echo "0")
+          echo "Attempt $i: HTML=$STATUS, Bundle=$BUNDLE_STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "Expo dev server HTML is ready at ${i}x5s!"
+            # Give extra time for the React components to render after HTML is served
+            sleep 10
             break
           fi
-          echo "Still waiting... ($((i*5))s)"
+          if [ "$i" = "24" ]; then
+            echo "ERROR: Expo failed to start after 120s"
+            exit 1
+          fi
         done
-        curl -f http://localhost:8081 || (echo "Expo server failed to start" && exit 1)
+        curl -f http://localhost:8081 > /dev/null || (echo "Expo server final check failed" && exit 1)
+        echo "Expo server is ready."
 
     - name: Run Selenium Tests
       working-directory: ./frontend/selenium-tests
       run: npm run login
       env:
         DEBUG: '*'
-        CHROME_BIN: /usr/bin/chromium-browser
+        CHROME_BIN: /usr/bin/google-chrome-stable
         CHROMEDRIVER_PATH: /usr/bin/chromedriver

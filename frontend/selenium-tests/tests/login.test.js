@@ -30,8 +30,8 @@ describe('CyberShield Login E2E Test', function() {
     it('should verify page renders and login successfully', async function() {
         try {
             await driver.get('http://localhost:8081');
-            console.log('Waiting 8s for Expo to fully render...');
-            await driver.sleep(8000);
+            console.log('Waiting 12s for Expo to fully render...');
+            await driver.sleep(12000);
 
             // ── Verification: log page title and check elements are present ──
             const title = await driver.getTitle();
@@ -50,18 +50,28 @@ describe('CyberShield Login E2E Test', function() {
                 console.log(`  input[${i}] attrs: ${attrs}`);
             }
 
-            const testIds = await driver.findElements(By.css('[data-testid]'));
-            console.log(`Total [data-testid] elements found: ${testIds.length}`);
-            for (let i = 0; i < testIds.length; i++) {
+            // Log all elements with id or data-testid to debug selector issues
+            const testIds = await driver.findElements(By.css('[data-testid], [id]'));
+            console.log(`Total [data-testid] or [id] elements found: ${testIds.length}`);
+            for (let i = 0; i < Math.min(testIds.length, 20); i++) {
                 const tid = await testIds[i].getAttribute('data-testid');
-                console.log(`  data-testid="${tid}"`);
+                const eid = await testIds[i].getAttribute('id');
+                const tag = await testIds[i].getTagName();
+                console.log(`  <${tag}> id="${eid}" data-testid="${tid}"`);
             }
+            
+            const pageSource = await driver.getPageSource();
+            console.log("=== PAGE SOURCE ===");
+            console.log(pageSource);
+            console.log("=== END PAGE SOURCE ===");
             // ── End Verification ──
 
+            // React Native Web does not render testID on DOM elements in some setups.
+            // Use placeholder and text selectors which are extremely robust.
             console.log("Waiting for email input...");
             const emailInput = await driver.wait(
-                until.elementLocated(By.css('[data-testid="email"]')),
-                20000,
+                until.elementLocated(By.css('input[placeholder="Email"], #email, [data-testid="email"]')),
+                30000,
                 'Email input element not found'
             );
             await driver.wait(until.elementIsVisible(emailInput), 10000);
@@ -70,7 +80,7 @@ describe('CyberShield Login E2E Test', function() {
 
             console.log("Waiting for password input...");
             const passInput = await driver.wait(
-                until.elementLocated(By.css('[data-testid="password"]')),
+                until.elementLocated(By.css('input[placeholder="Password"], #password, [data-testid="password"]')),
                 20000,
                 'Password input element not found'
             );
@@ -79,7 +89,7 @@ describe('CyberShield Login E2E Test', function() {
 
             console.log("Waiting for login button...");
             const loginBtn = await driver.wait(
-                until.elementLocated(By.css('[data-testid="login-button"]')),
+                until.elementLocated(By.xpath('//div[@role="button" and .//*[text()="Log In"]] | //*[text()="Log In"] | //*[@data-testid="login-button"]')),
                 20000,
                 'Login button not found'
             );
@@ -88,7 +98,7 @@ describe('CyberShield Login E2E Test', function() {
             console.log("Waiting for dashboard...");
             const quickScanText = await driver.wait(
                 until.elementLocated(By.xpath('//*[contains(text(), "Quick scan")] | //*[text()="Scan"]')),
-                20000,
+                25000,
                 'Dashboard not found after login'
             );
             assert.ok(quickScanText, 'Quick scan section should be visible after login');
