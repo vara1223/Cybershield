@@ -1284,13 +1284,14 @@ const styles = StyleSheet.create({
   },
   numKeyText: { fontSize: 20 },
   submitPasskeyButton: {
-    height: 48,
+    height: 46,
+    width: 220,
     backgroundColor: colors.indigo,
-    width: '100%',
     marginTop: 8,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    alignSelf: 'center',
   },
   submitPasskeyText: {
     color: '#ffffff',
