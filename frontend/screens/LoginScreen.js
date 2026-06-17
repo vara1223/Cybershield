@@ -156,22 +156,18 @@ export default function LoginScreen({ navigation }) {
 
           {/* Flat text link buttons */}
           <View style={styles.linksRow}>
-            <GlowButton
+            <Pressable
               onPress={() => navigation.navigate('ResetPassword')}
               style={styles.linkButton}
-              textStyle={styles.linkText}
-              glowColor="#8b5cf6"
             >
-              Forgot password?
-            </GlowButton>
-            <GlowButton
+              <Text style={styles.linkText}>Forgot password?</Text>
+            </Pressable>
+            <Pressable
               onPress={() => navigation.navigate('Register')}
               style={styles.linkButtonSecondary}
-              textStyle={styles.linkTextSecondary}
-              glowColor="#ec4899"
             >
-              Create account
-            </GlowButton>
+              <Text style={styles.linkTextSecondary}>Create account</Text>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -354,12 +350,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'transparent',
     borderWidth: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   linkText: {
     color: '#6366f1',
     fontSize: 13,
     fontWeight: '600',
-    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
   linkButtonSecondary: {
     flex: 1,
@@ -367,11 +365,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: 'transparent',
     borderWidth: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   linkTextSecondary: {
     color: '#db2777',
     fontSize: 13,
     fontWeight: '600',
-    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
 });

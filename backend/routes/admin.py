@@ -6,13 +6,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
-import csv
 import io
 from fastapi.responses import StreamingResponse
 from database import get_db
 from models.scan_log import ScanLog
 from schemas.responses import ScanLogOut, AdminStats
 from main import limiter
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 
 router = APIRouter()
 
@@ -112,17 +114,106 @@ async def get_stats(request: Request, db: Session = Depends(get_db)):
 @limiter.limit("20/minute")
 async def export_csv(request: Request, db: Session = Depends(get_db)):
     logs = db.query(ScanLog).order_by(ScanLog.scanned_at.desc()).all()
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["ID", "Feature", "Input", "Verdict", "Confidence", "Explanation", "Scanned At"])
-    for log in logs:
-        writer.writerow([
-            log.id, log.feature, log.input_data, log.verdict,
-            log.confidence, log.explanation, log.scanned_at,
-        ])
+    
+    # Create an in-memory workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "CyberShield Logs"
+    ws.views.sheetView[0].showGridLines = True
+
+    # Styling definitions
+    font_family = "Segoe UI"
+    header_fill = PatternFill(start_color="2F6EFF", end_color="2F6EFF", fill_type="solid") # Royal Blue
+    header_font = Font(name=font_family, size=11, bold=True, color="FFFFFF")
+    
+    safe_fill = PatternFill(start_color="E2EFDA", end_color="E2EFDA", fill_type="solid")
+    safe_font = Font(name=font_family, size=10, bold=True, color="375623")
+    
+    suspicious_fill = PatternFill(start_color="FFF2CC", end_color="FFF2CC", fill_type="solid")
+    suspicious_font = Font(name=font_family, size=10, bold=True, color="7F6000")
+    
+    dangerous_fill = PatternFill(start_color="FCE4D6", end_color="FCE4D6", fill_type="solid")
+    dangerous_font = Font(name=font_family, size=10, bold=True, color="C65911")
+    
+    border_thin = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9")
+    )
+    data_font = Font(name=font_family, size=10)
+    
+    # Headers
+    headers = ["ID", "Feature", "Input Data", "Verdict", "Confidence", "Explanation", "Scanned At"]
+    for col_idx, header in enumerate(headers, start=1):
+        cell = ws.cell(row=1, column=col_idx, value=header)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border_thin
+
+    # Fill data
+    for row_idx, log in enumerate(logs, start=2):
+        # Format scanned_at to date/time format: YYYY-MM-DD HH:MM:SS
+        scanned_at_str = ""
+        if log.scanned_at:
+            scanned_at_str = log.scanned_at.strftime("%Y-%m-%d %H:%M:%S")
+
+        row_data = [
+            f"#LOG-{log.id:04d}" if isinstance(log.id, int) else str(log.id),
+            str(log.feature or "").replace("_scan", "").upper(),
+            str(log.input_data or ""),
+            str(log.verdict or ""),
+            f"{log.confidence}%" if log.confidence is not None else "N/A",
+            str(log.explanation or ""),
+            scanned_at_str
+        ]
+
+        for col_idx, val in enumerate(row_data, start=1):
+            cell = ws.cell(row=row_idx, column=col_idx, value=val)
+            cell.font = data_font
+            cell.border = border_thin
+            
+            # Alignments
+            if col_idx in [1, 2, 5, 7]:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="left", vertical="center", wrap_text=True)
+                
+            # Verdict Column Color Styling
+            if col_idx == 4:
+                if val == "SAFE":
+                    cell.fill = safe_fill
+                    cell.font = safe_font
+                elif val == "SUSPICIOUS":
+                    cell.fill = suspicious_fill
+                    cell.font = suspicious_font
+                elif val == "DANGEROUS":
+                    cell.fill = dangerous_fill
+                    cell.font = dangerous_font
+
+    # Auto-adjust column widths
+    for col in ws.columns:
+        max_len = 0
+        col_letter = get_column_letter(col[0].column)
+        for cell in col:
+            val_str = str(cell.value or "")
+            if len(val_str) > max_len:
+                max_len = len(val_str)
+        # Give safety padding, cap width to avoid insanely long fields
+        ws.column_dimensions[col_letter].width = min(max(max_len + 3, 10), 50)
+
+    # Save to dynamic BytesIO stream
+    output = io.BytesIO()
+    wb.save(output)
     output.seek(0)
+    
+    # Add dynamic date and time to the filename
+    current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"cybershield_logs_{current_time_str}.xlsx"
+
     return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=cybershield_logs.csv"},
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
     )

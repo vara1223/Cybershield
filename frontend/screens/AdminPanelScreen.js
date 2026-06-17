@@ -41,6 +41,7 @@ const colors = {
   purple: '#8b5cf6',
   pink: '#ef4444',
   green: '#10b981',
+  indigo: '#6366f1',
 };
 
 function timeAgo(isoString) {
@@ -225,6 +226,59 @@ export default function AdminPanelScreen({ navigation }) {
     );
   }
 
+  function SecurityLevelBtn({ level, active, onPress }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+      <Pressable
+        onPress={onPress}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        style={[
+          styles.securityConfigBtn,
+          active
+            ? { backgroundColor: colors.purple, borderColor: colors.purple }
+            : (hovered ? { backgroundColor: colors.border, borderColor: colors.border } : { backgroundColor: colors.surface, borderColor: colors.border }),
+          { shadowOpacity: 0, elevation: 0 }
+        ]}
+      >
+        <Text
+          style={[
+            styles.securityConfigBtnText,
+            { fontFamily: Typography.bodyMedium },
+            active ? { color: '#fff', fontWeight: '700' } : { color: colors.textSecondary },
+          ]}
+        >
+          {level}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  function FlatUtilityBtn({ onPress, icon, label, color, bgColor }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+      <Pressable
+        onPress={onPress}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        style={[
+          styles.flatUtilityBtn,
+          {
+            borderColor: color,
+            backgroundColor: hovered ? `${color}1A` : bgColor,
+          }
+        ]}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Ionicons name={icon} size={18} color={color} />
+          <Text style={[styles.flatUtilityBtnText, { color: color, fontFamily: Typography.bodyMedium }]}>
+            {label}
+          </Text>
+        </View>
+      </Pressable>
+    );
+  }
+
   function TabItem({ active, label, icon, onPress }) {
     const [hovered, setHovered] = useState(false);
     return (
@@ -370,12 +424,11 @@ export default function AdminPanelScreen({ navigation }) {
         <View style={[styles.pinCard, Shadow.md]}>
           {/* Header row with back button inside card */}
           <View style={styles.pinCardHeaderRow}>
-            <Pressable onPress={handleBack} style={styles.pinCardBackBtn}>
-              <Ionicons name="arrow-back" size={16} color={colors.primary} />
-              <Text style={styles.pinCardBackText}>Exit</Text>
+            <Pressable onPress={handleBack} style={styles.pinCardBackBtn} testID="back-button">
+              <Ionicons name="arrow-back" size={22} color={colors.primary} style={{ fontWeight: 'bold' }} />
             </Pressable>
             <Text style={styles.pinCardHeaderTitle}>Admin Panel</Text>
-            <View style={{ width: 44 }} /> {/* Spacer for centering */}
+            <View style={{ width: 36 }} /> {/* Spacer for centering */}
           </View>
 
           <View style={styles.lockIconContainer}>
@@ -426,7 +479,7 @@ export default function AdminPanelScreen({ navigation }) {
             onPress={handlePasskeySubmit}
             style={styles.submitPasskeyButton}
             textStyle={styles.submitPasskeyText}
-            glowColor={colors.primary}
+            glowColor={colors.indigo}
           >
             SUBMIT PASSKEY
           </GlowButton>
@@ -730,56 +783,34 @@ export default function AdminPanelScreen({ navigation }) {
                 SECURITY SENSITIVITY
               </Text>
               <View style={styles.securityConfigRow}>
-                {['Low', 'Standard', 'Paranoid'].map((level) => {
-                  const active = securityLevel === level;
-                  return (
-                    <GlowButton
-                      key={level}
-                      style={[
-                        styles.securityConfigBtn,
-                        active && { backgroundColor: colors.purple, borderColor: colors.purple },
-                      ]}
-                      textStyle={[
-                        styles.securityConfigBtnText,
-                        active ? { color: '#fff' } : { color: colors.textSecondary },
-                      ]}
-                      onPress={() => setSecurityLevel(level)}
-                      glowColor={colors.purple}
-                    >
-                      {level}
-                    </GlowButton>
-                  );
-                })}
+                {['Low', 'Standard', 'Paranoid'].map((level) => (
+                  <SecurityLevelBtn
+                    key={level}
+                    level={level}
+                    active={securityLevel === level}
+                    onPress={() => setSecurityLevel(level)}
+                  />
+                ))}
               </View>
             </View>
 
             {/* Quick Actions Panel */}
             <View style={styles.actionsRow}>
-              <GlowButton
-                style={styles.exportBtn}
+              <FlatUtilityBtn
                 onPress={handleExportCSV}
-                glowColor={colors.primary}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="download-outline" size={18} color={colors.primary} />
-                  <Text style={[styles.exportBtnText, { color: colors.primary, fontFamily: Typography.bodyMedium }]}>
-                    Export CSV
-                  </Text>
-                </View>
-              </GlowButton>
+                icon="download-outline"
+                label="Export CSV"
+                color={colors.primary}
+                bgColor="rgba(47, 110, 255, 0.08)"
+              />
               
-              <GlowButton
-                style={styles.logoutBtn}
+              <FlatUtilityBtn
                 onPress={flushSystemCache}
-                glowColor={colors.pink}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="trash-outline" size={18} color={colors.pink} />
-                  <Text style={[styles.logoutBtnText, { color: colors.pink, fontFamily: Typography.bodyMedium }]}>
-                    Flush Cache
-                  </Text>
-                </View>
-              </GlowButton>
+                icon="trash-outline"
+                label="Flush Cache"
+                color={colors.pink}
+                bgColor="rgba(239, 68, 68, 0.08)"
+              />
             </View>
             
             {/* Quick Panel Lock */}
@@ -890,26 +921,14 @@ export default function AdminPanelScreen({ navigation }) {
               <View style={styles.rightColumnSection}>
                 <Text style={styles.rightColumnTitle}>SECURITY SENSITIVITY</Text>
                 <View style={styles.securityConfigRow}>
-                  {['Low', 'Standard', 'Paranoid'].map((level) => {
-                    const active = securityLevel === level;
-                    return (
-                      <GlowButton
-                        key={level}
-                        style={[
-                          styles.securityConfigBtn,
-                          active && { backgroundColor: colors.purple, borderColor: colors.purple },
-                        ]}
-                        textStyle={[
-                          styles.securityConfigBtnText,
-                          active ? { color: '#fff' } : { color: colors.textSecondary },
-                        ]}
-                        onPress={() => setSecurityLevel(level)}
-                        glowColor={colors.purple}
-                      >
-                        {level}
-                      </GlowButton>
-                    );
-                  })}
+                  {['Low', 'Standard', 'Paranoid'].map((level) => (
+                    <SecurityLevelBtn
+                      key={level}
+                      level={level}
+                      active={securityLevel === level}
+                      onPress={() => setSecurityLevel(level)}
+                    />
+                  ))}
                 </View>
               </View>
 
@@ -919,31 +938,21 @@ export default function AdminPanelScreen({ navigation }) {
               <View style={styles.rightColumnSection}>
                 <Text style={styles.rightColumnTitle}>QUICK UTILITIES</Text>
                 <View style={{ gap: 12 }}>
-                  <GlowButton
-                    style={styles.exportBtn}
+                  <FlatUtilityBtn
                     onPress={handleExportCSV}
-                    glowColor={colors.primary}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Ionicons name="download-outline" size={18} color={colors.primary} />
-                      <Text style={[styles.exportBtnText, { color: colors.primary, fontFamily: Typography.bodyMedium }]}>
-                        Export CSV
-                      </Text>
-                    </View>
-                  </GlowButton>
+                    icon="download-outline"
+                    label="Export CSV"
+                    color={colors.primary}
+                    bgColor="rgba(47, 110, 255, 0.08)"
+                  />
                   
-                  <GlowButton
-                    style={styles.logoutBtn}
+                  <FlatUtilityBtn
                     onPress={flushSystemCache}
-                    glowColor={colors.pink}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                      <Ionicons name="trash-outline" size={18} color={colors.pink} />
-                      <Text style={[styles.logoutBtnText, { color: colors.pink, fontFamily: Typography.bodyMedium }]}>
-                        Flush Cache
-                      </Text>
-                    </View>
-                  </GlowButton>
+                    icon="trash-outline"
+                    label="Flush Cache"
+                    color={colors.pink}
+                    bgColor="rgba(239, 68, 68, 0.08)"
+                  />
                 </View>
               </View>
             </View>
@@ -1206,15 +1215,14 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pinCardBackBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
+    justifyContent: 'center',
+    alignItems: 'center',
     cursor: 'pointer',
   },
   pinCardBackText: {
@@ -1277,10 +1285,12 @@ const styles = StyleSheet.create({
   numKeyText: { fontSize: 20 },
   submitPasskeyButton: {
     height: 48,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.indigo,
     width: '100%',
     marginTop: 8,
     borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   submitPasskeyText: {
     color: '#ffffff',
@@ -1288,6 +1298,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     letterSpacing: 1,
     fontFamily: Typography.bodySemiBold,
+    textAlign: 'center',
   },
 
   // Responsive Sidebar Layout
@@ -1674,13 +1685,31 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderWidth: 1.5,
     borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    cursor: 'pointer',
   },
   securityConfigBtnText: {
     fontSize: 12,
+    textAlign: 'center',
   },
 
   // Actions rows
   actionsRow: { flexDirection: 'row', gap: 12 },
+  flatUtilityBtn: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    cursor: 'pointer',
+  },
+  flatUtilityBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
   exportBtn: {
     flex: 1,
     height: 44,
