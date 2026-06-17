@@ -31,12 +31,24 @@ def capture_demo_screenshots():
         print("Saved: 01_login_page.png")
 
         # 2. Go to Admin Panel PIN entry
-        print("Navigating to Admin Panel PIN prompt...")
-        admin_btn = wait.until(EC.element_to_be_clickable(
-            (By.XPATH, "//*[contains(text(), 'Go to Admin Panel')]")
+        print("Logging in with Admin credentials to navigate to Admin Panel...")
+        email_input = wait.until(EC.element_to_be_clickable(
+            (By.XPATH, "//*[@placeholder='Email']")
         ))
-        admin_btn.click()
-        time.sleep(1)
+        email_input.clear()
+        email_input.send_keys("admin@cybershield.com")
+        
+        pass_input = wait.until(EC.element_to_be_clickable(
+            (By.XPATH, "//*[@placeholder='Password']")
+        ))
+        pass_input.clear()
+        pass_input.send_keys("admin123")
+        
+        login_btn = wait.until(EC.element_to_be_clickable(
+            (By.XPATH, "//*[text()='Log In']")
+        ))
+        login_btn.click()
+        time.sleep(3)
         
         path2 = os.path.join(screenshot_dir, "02_pin_entry_page.png")
         driver.save_screenshot(path2)

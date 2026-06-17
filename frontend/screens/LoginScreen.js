@@ -19,10 +19,6 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState('');
   const { signIn, authLoading } = useAuth();
 
-  const handleAdmin = () => {
-    navigation.navigate('Admin');
-  };
-
   const handleLogin = async () => {
     setError('');
     const trimmedEmail = email.trim().toLowerCase();
@@ -37,6 +33,13 @@ export default function LoginScreen({ navigation }) {
     }
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    if (trimmedEmail === 'admin@cybershield.com' && password === 'admin123') {
+      setEmail('');
+      setPassword('');
+      navigation.navigate('Admin');
       return;
     }
 
@@ -91,14 +94,6 @@ export default function LoginScreen({ navigation }) {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Register')}>
             <Text style={styles.linkSecondary}>Create account</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.adminInfoCard}>
-          <Text style={styles.adminInfoTitle}>Admin Access</Text>
-          <Text style={styles.adminInfoText}>Access the admin panel with your internal credentials.</Text>
-          <TouchableOpacity style={styles.adminButton} onPress={handleAdmin}>
-            <Text style={styles.adminButtonText}>Go to Admin Panel</Text>
           </TouchableOpacity>
         </View>
       </View>

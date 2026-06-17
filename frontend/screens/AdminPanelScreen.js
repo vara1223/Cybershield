@@ -42,7 +42,7 @@ export default function AdminPanelScreen({ navigation }) {
         setAdminAuthenticated(true);
         setPinInput('');
       } else {
-        Alert.alert('Incorrect PIN', 'Please try again.');
+        Alert.alert('Incorrect Passkey', 'Please try again.');
         setTimeout(() => setPinInput(''), 500);
       }
     }
@@ -81,7 +81,7 @@ export default function AdminPanelScreen({ navigation }) {
             <Ionicons name="lock-closed" size={28} color={colors.primary} />
           </View>
           <Text style={[styles.pinTitle, { color: colors.text, fontFamily: Typography.monoBold }]}>Admin Panel</Text>
-          <Text style={[styles.pinSub, { color: colors.textSecondary, fontFamily: Typography.body }]}>Enter 4-digit PIN to access</Text>
+          <Text style={[styles.pinSub, { color: colors.textSecondary, fontFamily: Typography.body }]}>Enter 4-digit Passkey to access</Text>
 
           {/* PIN dots */}
           <View style={styles.dotRow}>

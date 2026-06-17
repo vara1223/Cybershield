@@ -51,26 +51,36 @@ def run_real_selenium_tests():
         except Exception as e:
             log_result(tc_id, category, desc, "driver.get", "FAIL", f"Navigation failed: {str(e)[:100]}")
 
-        # TC-WEB-002: Click Admin Button
+        # TC-WEB-002: Enter Admin Credentials
         tc_id = "TC-WEB-002"
         category = "Navigation"
-        desc = "Click 'Go to Admin Panel' button and verify PIN modal loads"
+        desc = "Enter admin credentials and verify Passkey modal loads"
         try:
-            # Locate Go to Admin Panel button by checking tag containing the text
-            # React Native Web renders TouchableOpacity as a div with role button or inline text
-            admin_btn = wait.until(EC.element_to_be_clickable(
-                (By.XPATH, "//*[contains(text(), 'Go to Admin Panel')]")
+            email_input = wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//*[@placeholder='Email']")
             ))
-            admin_btn.click()
-            time.sleep(1)
+            email_input.clear()
+            email_input.send_keys("admin@cybershield.com")
             
-            # Check if PIN dot row or PIN Title is visible
-            pin_title = wait.until(EC.presence_of_element_located(
-                (By.XPATH, "//*[contains(text(), 'Enter 4-digit PIN')]")
+            pass_input = wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//*[@placeholder='Password']")
             ))
-            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Go to Admin Panel')])", "PASS", "Redirection to PIN entry screen succeeded.")
+            pass_input.clear()
+            pass_input.send_keys("admin123")
+            
+            login_btn = wait.until(EC.element_to_be_clickable(
+                (By.XPATH, "//*[text()='Log In']")
+            ))
+            login_btn.click()
+            time.sleep(2)
+            
+            # Check if Passkey Title is visible
+            pin_title = wait.until(EC.presence_of_element_located(
+                (By.XPATH, "//*[contains(text(), 'Enter 4-digit Passkey')]")
+            ))
+            log_result(tc_id, category, desc, "admin credentials login", "PASS", "Redirection to Passkey entry screen succeeded.")
         except Exception as e:
-            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Go to Admin Panel')])", "FAIL", f"Failed to navigate: {str(e)[:100]}")
+            log_result(tc_id, category, desc, "admin credentials login", "FAIL", f"Failed to navigate: {str(e)[:100]}")
 
         # TC-WEB-003: Enter PIN
         tc_id = "TC-WEB-003"
@@ -130,9 +140,9 @@ def run_real_selenium_tests():
                 driver.execute_script("arguments[0].click();", lock_btn)
                 
             time.sleep(1)
-            # Verify we are back on the PIN entry screen
-            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Enter 4-digit PIN')]")))
-            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Lock panel')])", "PASS", "Dashboard successfully locked and redirected to PIN screen.")
+            # Verify we are back on the Passkey entry screen
+            wait.until(EC.presence_of_element_located((By.XPATH, "//*[contains(text(), 'Enter 4-digit Passkey')]")))
+            log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Lock panel')])", "PASS", "Dashboard successfully locked and redirected to Passkey screen.")
         except Exception as e:
             log_result(tc_id, category, desc, "xpath(//*[contains(text(), 'Lock panel')])", "FAIL", f"Failed to lock dashboard: {str(e)[:100]}")
 
