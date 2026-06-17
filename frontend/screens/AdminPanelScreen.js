@@ -889,12 +889,12 @@ export default function AdminPanelScreen({ navigation }) {
               <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
                 <GlowButton
                   onPress={handleBack}
-                  style={styles.backButtonHeader}
+                  style={[styles.backButtonHeader, { backgroundColor: colors.purple, borderColor: colors.purple }]}
                   glowColor={colors.purple}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Ionicons name="arrow-back" size={16} color={colors.text} />
-                    <Text style={[styles.backText, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Exit</Text>
+                    <Ionicons name="arrow-back" size={16} color="#ffffff" />
+                    <Text style={[styles.backText, { color: '#ffffff', fontFamily: Typography.bodyMedium, fontWeight: '700' }]}>Exit</Text>
                   </View>
                 </GlowButton>
                 <View style={styles.authBadge}>
@@ -979,12 +979,12 @@ export default function AdminPanelScreen({ navigation }) {
           <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
             <GlowButton
               onPress={handleBack}
-              style={styles.backButtonHeader}
+              style={[styles.backButtonHeader, { backgroundColor: colors.purple, borderColor: colors.purple }]}
               glowColor={colors.purple}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Ionicons name="arrow-back" size={16} color={colors.text} />
-                <Text style={[styles.backText, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Exit</Text>
+                <Ionicons name="arrow-back" size={16} color="#ffffff" />
+                <Text style={[styles.backText, { color: '#ffffff', fontFamily: Typography.bodyMedium, fontWeight: '700' }]}>Exit</Text>
               </View>
             </GlowButton>
             
