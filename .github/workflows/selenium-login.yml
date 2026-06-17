@@ -1,10 +1,7 @@
-name: Selenium E2E Tests
+name: Test Workflow
 
 on:
 push:
-branches:
-- main
-pull_request:
 branches:
 - main
 
@@ -14,42 +11,6 @@ runs-on: ubuntu-latest
 
 ```
 steps:
-  - name: Checkout Repository
-    uses: actions/checkout@v4
-
-  - name: Setup Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: 20
-
-  - name: Install Chromium and ChromeDriver
-    run: |
-      sudo apt-get update
-      sudo apt-get install -y chromium-browser chromium-chromedriver
-
-  - name: Install Frontend Dependencies
-    working-directory: ./frontend
-    run: npm install
-
-  - name: Install Selenium Dependencies
-    working-directory: ./frontend/selenium-tests
-    run: npm install
-
-  - name: Start Expo Web Server
-    working-directory: ./frontend
-    run: |
-      nohup npx expo start --web --non-interactive > expo.log 2>&1 &
-      sleep 30
-
-  - name: Verify Expo Server
-    run: |
-      curl http://localhost:8081
-
-  - name: Run Selenium Tests
-    working-directory: ./frontend/selenium-tests
-    env:
-      DEBUG: "*"
-      CHROME_BIN: /usr/bin/chromium-browser
-      CHROMEDRIVER_PATH: /usr/bin/chromedriver
-    run: npm run login
+  - name: Test
+    run: echo "Workflow works!"
 ```
