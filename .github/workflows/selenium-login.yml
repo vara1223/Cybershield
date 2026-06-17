@@ -9,6 +9,13 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_SUPABASE_URL: https://ufrdaobwktyuodqfnont.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_53QafwVpywkn0a2nD6A5dQ_yD08GOAH
+      EXPO_PUBLIC_ADMIN_API_KEY: cybershield-secure-admin-token-2026
+      SUPABASE_URL: https://ufrdaobwktyuodqfnont.supabase.co
+      SUPABASE_ANON_KEY: sb_publishable_53QafwVpywkn0a2nD6A5dQ_yD08GOAH
+      ADMIN_API_KEY: cybershield-secure-admin-token-2026
 
     steps:
     - uses: actions/checkout@v3
