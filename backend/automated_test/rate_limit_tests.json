@@ -1,0 +1,64 @@
+{
+  "category": "rate_limiting",
+  "analysis_method": "static_code_analysis",
+  "timestamp": "2026-06-16T04:20:00Z",
+  "summary": "No rate limiting, throttling, or request quotas implemented anywhere in the application.",
+  "tests": [
+    {
+      "test_id": "RATE-001",
+      "endpoint": "ALL /analyze/* endpoints",
+      "method": "POST",
+      "description": "No rate limiting on public analysis endpoints",
+      "finding": true,
+      "severity": "HIGH",
+      "expected": "HTTP 429 after N requests per IP/minute",
+      "actual": "No SlowAPI, no custom middleware, no API gateway throttling detected",
+      "evidence": "main.py: only CORSMiddleware registered. requirements.txt: slowapi, limits, or rate-limit libraries not present.",
+      "category": "Missing Rate Limiting",
+      "notes": "An attacker can flood /analyze/screenshot or /analyze/voice endpoints to exhaust expensive OpenAI API credits (GPT-4o Vision + Whisper-1). Each request triggers a paid API call if Tesseract is unavailable. This is both a DoS vector and a financial abuse risk.",
+      "timestamp": "2026-06-16T04:20:00Z"
+    },
+    {
+      "test_id": "RATE-002",
+      "endpoint": "/admin/export/csv",
+      "method": "GET",
+      "description": "No rate limiting on CSV export endpoint — can be called repeatedly to dump DB",
+      "finding": true,
+      "severity": "HIGH",
+      "expected": "Rate limiting + authentication",
+      "actual": "No rate limiting, no authentication — unlimited calls allowed",
+      "evidence": "routes/admin.py line 69: no Depends() for rate limit or auth",
+      "category": "Missing Rate Limiting",
+      "notes": "Combined with zero auth, this allows continuous automated DB dumping.",
+      "timestamp": "2026-06-16T04:20:00Z"
+    },
+    {
+      "test_id": "RATE-003",
+      "endpoint": "ALL endpoints",
+      "method": "ALL",
+      "description": "No IP-based blocking or brute-force protection",
+      "finding": true,
+      "severity": "MEDIUM",
+      "expected": "IP-level throttling or circuit breaker",
+      "actual": "No IP tracking, no request counting, no block list",
+      "evidence": "main.py + all route files — no middleware for IP tracking",
+      "category": "Missing Rate Limiting",
+      "notes": "No protection against automated scanning or credential-stuffing if auth is added in the future.",
+      "timestamp": "2026-06-16T04:20:00Z"
+    },
+    {
+      "test_id": "RATE-004",
+      "endpoint": "/analyze/voice + /analyze/screenshot",
+      "method": "POST",
+      "description": "OpenAI API credit exhaustion via unlimited requests",
+      "finding": true,
+      "severity": "CRITICAL",
+      "expected": "Per-user or per-IP quota on AI-backed endpoints",
+      "actual": "Unlimited requests accepted; every screenshot/voice call may invoke gpt-4o or whisper-1",
+      "evidence": "services/screenshot_analyzer.py line 82-94: _ocr_openai() called when Tesseract unavailable. services/voice_analyzer.py likely calls Whisper API. No usage tracking.",
+      "category": "Financial Abuse / API Credit Exhaustion",
+      "notes": "A single script sending 1000 requests to /analyze/screenshot could cost hundreds of dollars in OpenAI API fees. This is a CRITICAL financial and operational risk.",
+      "timestamp": "2026-06-16T04:20:00Z"
+    }
+  ]
+}

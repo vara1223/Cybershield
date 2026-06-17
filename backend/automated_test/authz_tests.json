@@ -1,0 +1,84 @@
+{
+  "category": "authorization_rbac_matrix",
+  "analysis_method": "static_code_analysis",
+  "timestamp": "2026-06-16T04:20:00Z",
+  "summary": "No role-based access control (RBAC) implemented. Admin routes have zero authorization checks.",
+  "rbac_matrix": {
+    "roles_defined_in_code": [],
+    "roles_defined_in_input_json": ["public", "admin"],
+    "admin_protection_mechanism": "NONE",
+    "public_protection_mechanism": "NONE"
+  },
+  "tests": [
+    {
+      "test_id": "AUTHZ-001",
+      "endpoint": "/admin/logs",
+      "method": "GET",
+      "role": "public (no token)",
+      "expected_access": "DENY (403/401)",
+      "actual_access": "ALLOW",
+      "finding": true,
+      "severity": "CRITICAL",
+      "category": "RBAC Bypass",
+      "evidence": "No Depends(verify_admin) or equivalent in route signature",
+      "notes": "Any user — not just admins — can read all scan logs with pagination controls",
+      "timestamp": "2026-06-16T04:20:00Z"
+    },
+    {
+      "test_id": "AUTHZ-002",
+      "endpoint": "/admin/stats",
+      "method": "GET",
+      "role": "public (no token)",
+      "expected_access": "DENY (403/401)",
+      "actual_access": "ALLOW",
+      "finding": true,
+      "severity": "CRITICAL",
+      "category": "RBAC Bypass",
+      "evidence": "No authorization dependency in get_stats handler",
+      "notes": "Aggregate statistics about threat volumes and categories are freely exposed",
+      "timestamp": "2026-06-16T04:20:00Z"
+    },
+    {
+      "test_id": "AUTHZ-003",
+      "endpoint": "/admin/export/csv",
+      "method": "GET",
+      "role": "public (no token)",
+      "expected_access": "DENY (403/401)",
+      "actual_access": "ALLOW",
+      "finding": true,
+      "severity": "CRITICAL",
+      "category": "RBAC Bypass / Data Exfiltration",
+      "evidence": "No authorization dependency in export_csv handler. Returns StreamingResponse of all rows.",
+      "notes": "Complete database export (all scan logs including user-submitted input_data) is accessible to everyone. This is the highest-impact finding.",
+      "timestamp": "2026-06-16T04:20:00Z"
+    },
+    {
+      "test_id": "AUTHZ-004",
+      "endpoint": "/admin/logs",
+      "method": "GET",
+      "role": "public",
+      "expected_access": "DENY",
+      "actual_access": "ALLOW — also accepts arbitrary filter manipulation",
+      "finding": true,
+      "severity": "HIGH",
+      "category": "Insecure Direct Object Access / Filter Injection",
+      "evidence": "Query params `feature` and `verdict` are directly passed to SQLAlchemy filter with no allowlist validation (lines 24-27 admin.py)",
+      "notes": "While SQLAlchemy ORM prevents raw SQL injection, there is no validation that `feature` or `verdict` values are from a known-good set. Sending feature='; DROP TABLE scan_logs;--' will be safely rejected by ORM but unexpected values may cause info leakage in error responses.",
+      "timestamp": "2026-06-16T04:20:00Z"
+    },
+    {
+      "test_id": "AUTHZ-005",
+      "endpoint": "/admin/logs",
+      "method": "GET",
+      "role": "public",
+      "expected_access": "DENY",
+      "actual_access": "ALLOW — per_page parameter allows large data dumps",
+      "finding": true,
+      "severity": "MEDIUM",
+      "category": "Insecure Pagination / DoS via Mass Data Fetch",
+      "evidence": "per_page: int = Query(20, ge=1, le=100) — max 100 rows per request. While bounded, combined with zero auth this enables full database enumeration with ~total/100 requests",
+      "notes": "An unauthenticated attacker can iterate pages to dump the entire scan_logs table",
+      "timestamp": "2026-06-16T04:20:00Z"
+    }
+  ]
+}

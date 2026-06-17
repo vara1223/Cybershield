@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Pressable,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
@@ -21,6 +22,7 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState('');
   const [emailFocused, setEmailFocused] = useState(false);
   const [passwordFocused, setPasswordFocused] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const { signIn, authLoading } = useAuth();
 
@@ -105,7 +107,7 @@ export default function LoginScreen({ navigation }) {
             />
           </View>
 
-          {/* Password Input */}
+          {/* Password Input with Eye Icon Toggle */}
           <View
             style={[
               styles.inputContainer,
@@ -118,12 +120,15 @@ export default function LoginScreen({ navigation }) {
               placeholder="Password"
               value={password}
               onChangeText={setPassword}
-              secureTextEntry
+              secureTextEntry={!showPassword}
               style={styles.input}
               placeholderTextColor="#94a3b8"
               onFocus={() => setPasswordFocused(true)}
               onBlur={() => setPasswordFocused(false)}
             />
+            <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+              <Ionicons name={showPassword ? "eye-outline" : "eye-off-outline"} size={20} color="#64748b" />
+            </Pressable>
           </View>
 
           {error ? (
@@ -133,7 +138,7 @@ export default function LoginScreen({ navigation }) {
             </View>
           ) : null}
 
-          {/* Glowing Log In Button (Bright Royal Blue) */}
+          {/* Glowing Log In Button */}
           <GlowButton
             testID="login-button"
             style={styles.loginButton}
@@ -149,7 +154,7 @@ export default function LoginScreen({ navigation }) {
             )}
           </GlowButton>
 
-          {/* Footer Options */}
+          {/* Flat text link buttons */}
           <View style={styles.linksRow}>
             <GlowButton
               onPress={() => navigation.navigate('ResetPassword')}
@@ -303,6 +308,12 @@ const styles = StyleSheet.create({
     color: '#0f172a',
     backgroundColor: 'transparent',
   },
+  eyeIcon: {
+    padding: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    cursor: 'pointer',
+  },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -341,26 +352,26 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 38,
     borderRadius: 8,
-    backgroundColor: 'rgba(139, 92, 246, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.15)',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   linkText: {
-    color: '#7c3aed',
-    fontSize: 12,
+    color: '#6366f1',
+    fontSize: 13,
     fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   linkButtonSecondary: {
     flex: 1,
     height: 38,
     borderRadius: 8,
-    backgroundColor: 'rgba(236, 72, 153, 0.05)',
-    borderWidth: 1,
-    borderColor: 'rgba(236, 72, 153, 0.15)',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   linkTextSecondary: {
     color: '#db2777',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

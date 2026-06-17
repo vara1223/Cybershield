@@ -28,18 +28,18 @@ import GlowButton from '../components/GlowButton';
 export const ADMIN_PIN = '1234';
 const PIN = ADMIN_PIN;
 
-// Custom Cyber Security Dark Theme colors
+// Modern Bright Theme colors
 const colors = {
-  background: '#060913',
-  card: '#121829',
-  border: '#1f2943',
-  text: '#ffffff',
-  textSecondary: '#8f9bb3',
-  textMuted: '#5f6b8a',
-  surface: '#161f38',
-  primary: '#00f0ff',
+  background: '#f1f5f9',
+  card: '#ffffff',
+  border: '#e2e8f0',
+  text: '#0f172a',
+  textSecondary: '#64748b',
+  textMuted: '#94a3b8',
+  surface: '#f8fafc',
+  primary: '#2f6eff',
   purple: '#8b5cf6',
-  pink: '#ff2d55',
+  pink: '#ef4444',
   green: '#10b981',
 };
 
@@ -197,13 +197,13 @@ export default function AdminPanelScreen({ navigation }) {
         style={({ pressed }) => [
           styles.numKeyCircle,
           {
-            backgroundColor: value ? (hovered ? 'rgba(0, 240, 255, 0.15)' : colors.surface) : 'transparent',
-            borderColor: hovered ? '#00f0ff' : colors.border,
+            backgroundColor: value ? (hovered ? '#e2e8f0' : colors.surface) : 'transparent',
+            borderColor: hovered ? colors.primary : colors.border,
             transform: [{ scale: hovered ? 1.05 : 1 }],
             opacity: pressed ? 0.8 : 1,
-            shadowColor: '#00f0ff',
-            shadowRadius: hovered ? 10 : 0,
-            shadowOpacity: hovered ? 0.6 : 0,
+            shadowColor: colors.primary,
+            shadowRadius: hovered ? 8 : 0,
+            shadowOpacity: hovered ? 0.2 : 0,
           }
         ]}
         disabled={!value}
@@ -235,7 +235,7 @@ export default function AdminPanelScreen({ navigation }) {
         style={[
           styles.tabItem,
           active && { borderBottomColor: colors.primary },
-          hovered && { backgroundColor: 'rgba(0, 240, 255, 0.03)' },
+          hovered && { backgroundColor: 'rgba(47, 110, 255, 0.04)' },
           { transform: [{ scale: hovered ? 1.02 : 1 }] }
         ]}
       >
@@ -269,8 +269,8 @@ export default function AdminPanelScreen({ navigation }) {
         onHoverOut={() => setHovered(false)}
         style={[
           styles.sidebarItem,
-          active && { backgroundColor: 'rgba(0, 240, 255, 0.08)', borderColor: colors.primary },
-          hovered && !active && { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+          active && { backgroundColor: 'rgba(47, 110, 255, 0.06)', borderColor: colors.primary },
+          hovered && !active && { backgroundColor: 'rgba(15, 23, 42, 0.02)' },
           { transform: [{ scale: hovered ? 1.02 : 1 }] }
         ]}
       >
@@ -308,9 +308,9 @@ export default function AdminPanelScreen({ navigation }) {
             borderColor: hovered ? glowColor : colors.border,
             transform: [{ scale: hovered ? 1.03 : 1 }],
             shadowColor: glowColor,
-            shadowRadius: hovered ? 14 : 4,
-            shadowOpacity: hovered ? 0.6 : 0.2,
-            elevation: hovered ? 8 : 2,
+            shadowRadius: hovered ? 12 : 4,
+            shadowOpacity: hovered ? 0.3 : 0.05,
+            elevation: hovered ? 6 : 2,
           }
         ]}
       >
@@ -338,7 +338,7 @@ export default function AdminPanelScreen({ navigation }) {
         style={[
           styles.filterPill,
           {
-            backgroundColor: active ? colors.purple : (hovered ? colors.surface : colors.background),
+            backgroundColor: active ? colors.purple : (hovered ? colors.border : colors.background),
             borderColor: active ? colors.purple : (hovered ? colors.primary : colors.border),
             transform: [{ scale: hovered ? 1.05 : 1 }],
           }
@@ -359,29 +359,25 @@ export default function AdminPanelScreen({ navigation }) {
     );
   }
 
-  // Passkey screen rendering (if not authenticated)
+  // Passkey screen rendering (if not authenticated) - Bright Colors
   if (!adminAuthenticated) {
     return (
       <View style={[styles.pinContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.glowAmbient, styles.glowPurple]} />
-        <View style={[styles.glowAmbient, styles.glowCyan]} />
-
-        {/* Modern back navigation capsule */}
-        <GlowButton
-          onPress={handleBack}
-          style={styles.backButtonCapsule}
-          glowColor={colors.primary}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="arrow-back" size={16} color={colors.text} />
-            <Text style={[styles.backButtonCapsuleText, { color: colors.text, fontFamily: Typography.bodyMedium }]}>
-              Exit Admin
-            </Text>
-          </View>
-        </GlowButton>
+        <View style={[styles.glowAmbient, styles.glowPurple, { opacity: 0.05 }]} />
+        <View style={[styles.glowAmbient, styles.glowCyan, { opacity: 0.05 }]} />
 
         {/* Elegant secure vault style card container */}
         <View style={[styles.pinCard, Shadow.md]}>
+          {/* Header row with back button inside card */}
+          <View style={styles.pinCardHeaderRow}>
+            <Pressable onPress={handleBack} style={styles.pinCardBackBtn}>
+              <Ionicons name="arrow-back" size={16} color={colors.primary} />
+              <Text style={styles.pinCardBackText}>Exit</Text>
+            </Pressable>
+            <Text style={styles.pinCardHeaderTitle}>Admin Panel</Text>
+            <View style={{ width: 44 }} /> {/* Spacer for centering */}
+          </View>
+
           <View style={styles.lockIconContainer}>
             <View style={styles.lockIconPulse} />
             <Ionicons name="shield" size={32} color={colors.purple} />
@@ -403,7 +399,7 @@ export default function AdminPanelScreen({ navigation }) {
                     borderColor: i < pinInput.length ? colors.primary : colors.border,
                     shadowColor: colors.primary,
                     shadowRadius: i < pinInput.length ? 8 : 0,
-                    shadowOpacity: i < pinInput.length ? 0.8 : 0,
+                    shadowOpacity: i < pinInput.length ? 0.3 : 0,
                   },
                 ]}
               />
@@ -485,7 +481,7 @@ export default function AdminPanelScreen({ navigation }) {
             WEEKLY THREAT VOLUME
           </Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <WeeklyChart data={stats.daily_counts} isDark={true} height={140} />
+            <WeeklyChart data={stats.daily_counts} isDark={false} height={140} />
           </ScrollView>
         </View>
 
@@ -571,7 +567,7 @@ export default function AdminPanelScreen({ navigation }) {
               threatLogs.map((scan) => {
                 const isDangerous = scan.verdict === 'DANGEROUS';
                 const verdictTextColor = isDangerous ? colors.pink : colors.primary;
-                const verdictBg = isDangerous ? 'rgba(255, 45, 85, 0.12)' : 'rgba(0, 240, 255, 0.12)';
+                const verdictBg = isDangerous ? 'rgba(239, 68, 68, 0.08)' : 'rgba(47, 110, 255, 0.08)';
                 const confidence = scan.confidence ?? (isDangerous ? 94 : 82);
                 
                 return (
@@ -628,7 +624,7 @@ export default function AdminPanelScreen({ navigation }) {
                 <RecentScanRow
                   key={scan.id}
                   scan={scan}
-                  isDark={true}
+                  isDark={false}
                   showBorder={idx < threatLogs.length - 1}
                   onPress={() => {
                     setSelectedScan(scan);
@@ -725,77 +721,82 @@ export default function AdminPanelScreen({ navigation }) {
           )}
         </View>
 
-        {/* Security Config Level */}
-        <View style={styles.systemInfoCard}>
-          <Text style={styles.sectionTitle}>
-            SECURITY SENSITIVITY
-          </Text>
-          <View style={styles.securityConfigRow}>
-            {['Low', 'Standard', 'Paranoid'].map((level) => {
-              const active = securityLevel === level;
-              return (
-                <GlowButton
-                  key={level}
-                  style={[
-                    styles.securityConfigBtn,
-                    active && { backgroundColor: colors.purple, borderColor: colors.purple },
-                  ]}
-                  textStyle={[
-                    styles.securityConfigBtnText,
-                    active ? { color: '#fff' } : { color: colors.textSecondary },
-                  ]}
-                  onPress={() => setSecurityLevel(level)}
-                  glowColor={colors.purple}
-                >
-                  {level}
-                </GlowButton>
-              );
-            })}
-          </View>
-        </View>
+        {/* Only show these on mobile view (small screen) because they are moved to the right column on large screens! */}
+        {!isLargeScreen && (
+          <>
+            {/* Security Config Level */}
+            <View style={styles.systemInfoCard}>
+              <Text style={styles.sectionTitle}>
+                SECURITY SENSITIVITY
+              </Text>
+              <View style={styles.securityConfigRow}>
+                {['Low', 'Standard', 'Paranoid'].map((level) => {
+                  const active = securityLevel === level;
+                  return (
+                    <GlowButton
+                      key={level}
+                      style={[
+                        styles.securityConfigBtn,
+                        active && { backgroundColor: colors.purple, borderColor: colors.purple },
+                      ]}
+                      textStyle={[
+                        styles.securityConfigBtnText,
+                        active ? { color: '#fff' } : { color: colors.textSecondary },
+                      ]}
+                      onPress={() => setSecurityLevel(level)}
+                      glowColor={colors.purple}
+                    >
+                      {level}
+                    </GlowButton>
+                  );
+                })}
+              </View>
+            </View>
 
-        {/* Quick Actions Panel */}
-        <View style={styles.actionsRow}>
-          <GlowButton
-            style={styles.exportBtn}
-            onPress={handleExportCSV}
-            glowColor={colors.primary}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Ionicons name="download-outline" size={18} color={colors.primary} />
-              <Text style={[styles.exportBtnText, { color: colors.primary, fontFamily: Typography.bodyMedium }]}>
-                Export CSV
-              </Text>
+            {/* Quick Actions Panel */}
+            <View style={styles.actionsRow}>
+              <GlowButton
+                style={styles.exportBtn}
+                onPress={handleExportCSV}
+                glowColor={colors.primary}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Ionicons name="download-outline" size={18} color={colors.primary} />
+                  <Text style={[styles.exportBtnText, { color: colors.primary, fontFamily: Typography.bodyMedium }]}>
+                    Export CSV
+                  </Text>
+                </View>
+              </GlowButton>
+              
+              <GlowButton
+                style={styles.logoutBtn}
+                onPress={flushSystemCache}
+                glowColor={colors.pink}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="trash-outline" size={18} color={colors.pink} />
+                  <Text style={[styles.logoutBtnText, { color: colors.pink, fontFamily: Typography.bodyMedium }]}>
+                    Flush Cache
+                  </Text>
+                </View>
+              </GlowButton>
             </View>
-          </GlowButton>
-          
-          <GlowButton
-            style={styles.logoutBtn}
-            onPress={flushSystemCache}
-            glowColor={colors.pink}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Ionicons name="trash-outline" size={18} color={colors.pink} />
-              <Text style={[styles.logoutBtnText, { color: colors.pink, fontFamily: Typography.bodyMedium }]}>
-                Flush Cache
-              </Text>
-            </View>
-          </GlowButton>
-        </View>
-        
-        {/* Quick Panel Lock */}
-        <GlowButton
-          style={styles.fullLockBtn}
-          glowColor={colors.pink}
-          onPress={() => setAdminAuthenticated(false)}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="lock-closed" size={16} color="#fff" />
-            <Text style={[styles.fullLockBtnText, { color: '#fff', fontFamily: Typography.bodyMedium }]}>
-              Lock Admin Console
-            </Text>
-          </View>
-        </GlowButton>
+            
+            {/* Quick Panel Lock */}
+            <GlowButton
+              style={styles.fullLockBtn}
+              glowColor={colors.pink}
+              onPress={() => setAdminAuthenticated(false)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="lock-closed" size={16} color="#fff" />
+                <Text style={[styles.fullLockBtnText, { color: '#fff', fontFamily: Typography.bodyMedium }]}>
+                  Lock Admin Console
+                </Text>
+              </View>
+            </GlowButton>
+          </>
+        )}
       </View>
     );
   }
@@ -803,15 +804,15 @@ export default function AdminPanelScreen({ navigation }) {
   // Admin Panel Main rendering (if authenticated)
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.glowAmbient, styles.glowPurple, { top: -200, right: -150 }]} />
-      <View style={[styles.glowAmbient, styles.glowCyan, { bottom: -200, left: -150 }]} />
+      <View style={[styles.glowAmbient, styles.glowPurple, { opacity: 0.05, top: -200, right: -150 }]} />
+      <View style={[styles.glowAmbient, styles.glowCyan, { opacity: 0.05, bottom: -200, left: -150 }]} />
 
       {isLargeScreen ? (
         <View style={styles.sidebarLayout}>
           {/* Side Bar Navigation */}
           <View style={styles.sidebar}>
             <View style={styles.sidebarLogoContainer}>
-              <Ionicons name="shield-checkmark" size={24} color={colors.primary} style={{ marginRight: 8 }} />
+              <Ionicons name="shield" size={24} color={colors.primary} style={{ marginRight: 8 }} />
               <Text style={styles.sidebarLogoText}>
                 CYBER<Text style={{ color: colors.primary }}>SHIELD</Text>
               </Text>
@@ -837,23 +838,9 @@ export default function AdminPanelScreen({ navigation }) {
                 onPress={() => setActiveTab('system')}
               />
             </View>
-
-            {/* Sidebar bottom lock console */}
-            <GlowButton
-              style={styles.sidebarLockBtn}
-              glowColor={colors.pink}
-              onPress={() => setAdminAuthenticated(false)}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="lock-closed" size={14} color="#fff" />
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: Typography.bodyMedium }}>
-                  Lock Console
-                </Text>
-              </View>
-            </GlowButton>
           </View>
 
-          {/* Main content right side */}
+          {/* Main content middle side */}
           <View style={styles.mainContent}>
             <View style={styles.header}>
               <View style={styles.headerInfo}>
@@ -894,6 +881,86 @@ export default function AdminPanelScreen({ navigation }) {
               {activeTab === 'threats' && renderThreatsTab()}
               {activeTab === 'system' && renderSystemTab()}
             </ScrollView>
+          </View>
+
+          {/* Right Control Column - Consolidating Security, Export, Flush & Lock Console (Only ONE Lock button visible!) */}
+          <View style={styles.rightColumn}>
+            <View style={{ gap: 24 }}>
+              {/* Security Sensitivity */}
+              <View style={styles.rightColumnSection}>
+                <Text style={styles.rightColumnTitle}>SECURITY SENSITIVITY</Text>
+                <View style={styles.securityConfigRow}>
+                  {['Low', 'Standard', 'Paranoid'].map((level) => {
+                    const active = securityLevel === level;
+                    return (
+                      <GlowButton
+                        key={level}
+                        style={[
+                          styles.securityConfigBtn,
+                          active && { backgroundColor: colors.purple, borderColor: colors.purple },
+                        ]}
+                        textStyle={[
+                          styles.securityConfigBtnText,
+                          active ? { color: '#fff' } : { color: colors.textSecondary },
+                        ]}
+                        onPress={() => setSecurityLevel(level)}
+                        glowColor={colors.purple}
+                      >
+                        {level}
+                      </GlowButton>
+                    );
+                  })}
+                </View>
+              </View>
+
+              <View style={styles.rightColumnDivider} />
+
+              {/* Quick Actions */}
+              <View style={styles.rightColumnSection}>
+                <Text style={styles.rightColumnTitle}>QUICK UTILITIES</Text>
+                <View style={{ gap: 12 }}>
+                  <GlowButton
+                    style={styles.exportBtn}
+                    onPress={handleExportCSV}
+                    glowColor={colors.primary}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Ionicons name="download-outline" size={18} color={colors.primary} />
+                      <Text style={[styles.exportBtnText, { color: colors.primary, fontFamily: Typography.bodyMedium }]}>
+                        Export CSV
+                      </Text>
+                    </View>
+                  </GlowButton>
+                  
+                  <GlowButton
+                    style={styles.logoutBtn}
+                    onPress={flushSystemCache}
+                    glowColor={colors.pink}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Ionicons name="trash-outline" size={18} color={colors.pink} />
+                      <Text style={[styles.logoutBtnText, { color: colors.pink, fontFamily: Typography.bodyMedium }]}>
+                        Flush Cache
+                      </Text>
+                    </View>
+                  </GlowButton>
+                </View>
+              </View>
+            </View>
+
+            {/* Lock Console Button (The ONLY lock button visible on large screens!) */}
+            <GlowButton
+              style={styles.fullLockBtn}
+              glowColor={colors.pink}
+              onPress={() => setAdminAuthenticated(false)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="lock-closed" size={16} color="#fff" />
+                <Text style={[styles.fullLockBtnText, { color: '#fff', fontFamily: Typography.bodyMedium }]}>
+                  Lock Admin Console
+                </Text>
+              </View>
+            </GlowButton>
           </View>
         </View>
       ) : (
@@ -1071,7 +1138,7 @@ export default function AdminPanelScreen({ navigation }) {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="analytics" size={16} color="#060913" style={{ marginRight: 6 }} />
+                    <Ionicons name="analytics" size={16} color="#ffffff" style={{ marginRight: 6 }} />
                     <Text style={[styles.modalActionPrimaryText, { fontFamily: Typography.bodyMedium }]}>
                       Full Analysis
                     </Text>
@@ -1094,7 +1161,7 @@ const styles = StyleSheet.create({
     width: 450,
     height: 450,
     borderRadius: 225,
-    opacity: 0.15,
+    opacity: 0.08,
   },
   glowPurple: {
     backgroundColor: colors.purple,
@@ -1107,19 +1174,9 @@ const styles = StyleSheet.create({
     left: -100,
   },
   
-  // Back navigation capsule button
+  // Back navigation capsule button on PIN page (No longer absolute, but let's keep style for compatibility)
   backButtonCapsule: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    zIndex: 10,
-    height: 38,
+    display: 'none',
   },
   backButtonCapsuleText: {
     fontSize: 13,
@@ -1136,10 +1193,42 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     gap: 16,
-    shadowColor: '#000',
+    shadowColor: '#0f172a',
     shadowRadius: 25,
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.08,
     elevation: 10,
+  },
+  pinCardHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
+  },
+  pinCardBackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    cursor: 'pointer',
+  },
+  pinCardBackText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontWeight: '700',
+    fontFamily: Typography.bodySemiBold,
+  },
+  pinCardHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    fontFamily: Typography.monoBold,
+    letterSpacing: 1,
   },
   lockIconContainer: {
     width: 66,
@@ -1150,11 +1239,10 @@ const styles = StyleSheet.create({
     borderColor: colors.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
     position: 'relative',
     shadowColor: colors.purple,
     shadowRadius: 10,
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.15,
   },
   lockIconPulse: {
     position: 'absolute',
@@ -1162,7 +1250,7 @@ const styles = StyleSheet.create({
     height: 76,
     borderRadius: 38,
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.2)',
+    borderColor: 'rgba(139, 92, 246, 0.15)',
   },
   pinTitle: { fontSize: 20, fontWeight: '800', color: colors.text, letterSpacing: 1.5 },
   pinSub: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 4 },
@@ -1195,7 +1283,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   submitPasskeyText: {
-    color: '#060913',
+    color: '#ffffff',
     fontWeight: '800',
     fontSize: 14,
     letterSpacing: 1,
@@ -1214,7 +1302,6 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingVertical: 24,
     paddingHorizontal: 16,
-    justifyContent: 'space-between',
   },
   sidebarLogoContainer: {
     flexDirection: 'row',
@@ -1254,14 +1341,33 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     backgroundColor: colors.primary,
   },
-  sidebarLockBtn: {
-    height: 40,
-    backgroundColor: 'rgba(255, 45, 85, 0.1)',
-    borderWidth: 1.5,
-    borderColor: colors.pink,
-    borderRadius: 10,
-    width: '100%',
+  
+  // Right Column Layout (Consolidated controls)
+  rightColumn: {
+    width: 280,
+    backgroundColor: colors.card,
+    borderLeftWidth: 1.5,
+    borderColor: colors.border,
+    paddingVertical: 24,
+    paddingHorizontal: 20,
+    justifyContent: 'space-between',
   },
+  rightColumnSection: {
+    gap: 12,
+  },
+  rightColumnTitle: {
+    fontSize: 11,
+    letterSpacing: 1.5,
+    fontWeight: '800',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  rightColumnDivider: {
+    height: 1.5,
+    backgroundColor: colors.border,
+    marginVertical: 4,
+  },
+
   mainContent: {
     flex: 1,
     backgroundColor: colors.background,
@@ -1443,7 +1549,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1.5,
     borderColor: colors.border,
-    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    backgroundColor: 'rgba(15, 23, 42, 0.01)',
   },
   tableHeaderCell: {
     color: colors.primary,
@@ -1476,7 +1582,7 @@ const styles = StyleSheet.create({
   tableActionBtn: {
     width: 76,
     height: 28,
-    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    backgroundColor: 'rgba(47, 110, 255, 0.08)',
     borderWidth: 1.2,
     borderColor: colors.primary,
     borderRadius: 6,
@@ -1578,7 +1684,7 @@ const styles = StyleSheet.create({
   exportBtn: {
     flex: 1,
     height: 44,
-    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    backgroundColor: 'rgba(47, 110, 255, 0.08)',
     borderWidth: 1.5,
     borderColor: colors.primary,
     borderRadius: 12,
@@ -1587,7 +1693,7 @@ const styles = StyleSheet.create({
   logoutBtn: {
     flex: 1,
     height: 44,
-    backgroundColor: 'rgba(255, 45, 85, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
     borderWidth: 1.5,
     borderColor: colors.pink,
     borderRadius: 12,
@@ -1595,8 +1701,8 @@ const styles = StyleSheet.create({
   logoutBtnText: { fontSize: 13, fontWeight: '700' },
   fullLockBtn: {
     height: 44,
-    backgroundColor: colors.card,
-    borderColor: colors.border,
+    backgroundColor: colors.pink,
+    borderColor: colors.pink,
     borderWidth: 1.5,
     borderRadius: 12,
     width: '100%',
@@ -1609,7 +1715,7 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -1622,7 +1728,7 @@ const styles = StyleSheet.create({
     padding: 20,
     shadowColor: '#000',
     shadowRadius: 20,
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.2,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1692,7 +1798,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   modalActionPrimaryText: {
-    color: '#060913',
+    color: '#ffffff',
     fontSize: 14,
     fontWeight: '800',
   },
