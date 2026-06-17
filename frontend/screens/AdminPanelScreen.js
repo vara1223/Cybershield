@@ -12,6 +12,7 @@ import {
   Modal,
   ActivityIndicator,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -42,6 +43,15 @@ const colors = {
   green: '#10b981',
 };
 
+function timeAgo(isoString) {
+  if (!isoString) return 'now';
+  const diff = (Date.now() - new Date(isoString).getTime()) / 1000;
+  if (diff < 60) return `${Math.floor(diff)}s ago`;
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
+}
+
 export default function AdminPanelScreen({ navigation }) {
   const isDark = useScanStore((s) => s.isDark);
   const adminAuthenticated = useScanStore((s) => s.adminAuthenticated);
@@ -49,6 +59,8 @@ export default function AdminPanelScreen({ navigation }) {
   const history = useScanStore((s) => s.history);
   const setCurrentResult = useScanStore((s) => s.setCurrentResult);
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isLargeScreen = width >= 768;
 
   const [pinInput, setPinInput] = useState('');
   const [stats, setStats] = useState(MOCK_STATS);
@@ -248,6 +260,42 @@ export default function AdminPanelScreen({ navigation }) {
     );
   }
 
+  function SidebarItem({ active, label, icon, onPress }) {
+    const [hovered, setHovered] = useState(false);
+    return (
+      <Pressable
+        onPress={onPress}
+        onHoverIn={() => setHovered(true)}
+        onHoverOut={() => setHovered(false)}
+        style={[
+          styles.sidebarItem,
+          active && { backgroundColor: 'rgba(0, 240, 255, 0.08)', borderColor: colors.primary },
+          hovered && !active && { backgroundColor: 'rgba(255, 255, 255, 0.03)' },
+          { transform: [{ scale: hovered ? 1.02 : 1 }] }
+        ]}
+      >
+        <Ionicons
+          name={icon}
+          size={18}
+          color={active ? colors.primary : (hovered ? colors.purple : colors.textMuted)}
+          style={{ marginRight: 12 }}
+        />
+        <Text
+          style={[
+            styles.sidebarLabel,
+            {
+              color: active ? colors.primary : (hovered ? colors.text : colors.textSecondary),
+              fontFamily: active ? Typography.bodySemiBold : Typography.body,
+            },
+          ]}
+        >
+          {label}
+        </Text>
+        {active && <View style={styles.activeMenuIndicator} />}
+      </Pressable>
+    );
+  }
+
   function StatCard({ label, value, sub, color, icon, glowColor }) {
     const [hovered, setHovered] = useState(false);
     return (
@@ -336,7 +384,7 @@ export default function AdminPanelScreen({ navigation }) {
         <View style={[styles.pinCard, Shadow.md]}>
           <View style={styles.lockIconContainer}>
             <View style={styles.lockIconPulse} />
-            <Ionicons name="shield-lock" size={32} color={colors.purple} />
+            <Ionicons name="shield" size={32} color={colors.purple} />
           </View>
           <Text style={[styles.pinTitle, { fontFamily: Typography.monoBold }]}>ADMIN ACCESS</Text>
           <Text style={[styles.pinSub, { fontFamily: Typography.body }]}>
@@ -391,363 +439,530 @@ export default function AdminPanelScreen({ navigation }) {
     );
   }
 
+  // Tab Rendering Helpers
+  function renderOverviewTab() {
+    return (
+      <View style={styles.tabContentContainer}>
+        {/* Modern Stats Grid */}
+        <View style={styles.statsGrid}>
+          <StatCard
+            label="Total Scans"
+            value={stats.total}
+            sub="+8% vs yesterday"
+            color={colors.primary}
+            glowColor={colors.primary}
+            icon="search"
+          />
+          <StatCard
+            label="Threats Blocked"
+            value={stats.threats}
+            sub="+2 today"
+            color={colors.pink}
+            glowColor={colors.pink}
+            icon="bug"
+          />
+          <StatCard
+            label="Safe Rate"
+            value={`${stats.safe_rate}%`}
+            sub="Stable"
+            color={colors.green}
+            glowColor={colors.green}
+            icon="shield-half"
+          />
+          <StatCard
+            label="Today's Scans"
+            value={stats.today_count}
+            sub="24h active logs"
+            color={colors.purple}
+            glowColor={colors.purple}
+            icon="today"
+          />
+        </View>
+
+        {/* Weekly Chart */}
+        <View style={styles.chartCard}>
+          <Text style={styles.sectionTitle}>
+            WEEKLY THREAT VOLUME
+          </Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <WeeklyChart data={stats.daily_counts} isDark={true} height={140} />
+          </ScrollView>
+        </View>
+
+        {/* Category breakdown */}
+        <View style={styles.chartCard}>
+          <Text style={styles.sectionTitle}>
+            BY CATEGORY
+          </Text>
+          {Object.entries(stats.by_category).map(([feature, count]) => {
+            const pct = stats.total > 0 ? (count / stats.total) * 100 : 0;
+            return (
+              <View key={feature} style={styles.catRow}>
+                <Text style={[styles.catLabel, { fontFamily: Typography.body }]}>
+                  {feature.replace('_scan', '').toUpperCase()}
+                </Text>
+                <View style={styles.catBar}>
+                  <View style={[styles.catFill, { width: `${pct}%`, backgroundColor: colors.purple }]} />
+                </View>
+                <Text style={[styles.catCount, { fontFamily: Typography.mono }]}>
+                  {count}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }
+
+  function renderThreatsTab() {
+    return (
+      <View style={styles.tabContentContainer}>
+        {/* Search and Filter Area */}
+        <View style={styles.searchFilterCard}>
+          <View style={styles.searchBox}>
+            <Ionicons name="search" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
+            <TextInput
+              placeholder="Search threat logs..."
+              placeholderTextColor={colors.textMuted}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              style={[styles.searchInput, { fontFamily: Typography.body }]}
+            />
+            {searchQuery !== '' && (
+              <Pressable onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Horizontal Category Filters */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillRow}>
+            {['ALL', 'URL', 'QR', 'OTP', 'UPI', 'Screenshot', 'Voice'].map((cat) => (
+              <FilterPill
+                key={cat}
+                cat={cat}
+                active={categoryFilter === cat}
+                onPress={() => setCategoryFilter(cat)}
+              />
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* List / Table of threats */}
+        <Text style={[styles.threatCountText, { fontFamily: Typography.body }]}>
+          Showing {threatLogs.length} threat logs
+        </Text>
+
+        {isLargeScreen ? (
+          <View style={styles.tableCard}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderCell, { width: 85 }]}>THREAT ID</Text>
+              <Text style={[styles.tableHeaderCell, { width: 100 }]}>SCAN TYPE</Text>
+              <Text style={[styles.tableHeaderCell, { flex: 2 }]}>SCANNED DATA</Text>
+              <Text style={[styles.tableHeaderCell, { width: 120 }]}>VERDICT</Text>
+              <Text style={[styles.tableHeaderCell, { width: 95 }]}>RISK SCORE</Text>
+              <Text style={[styles.tableHeaderCell, { width: 110 }]}>TIMESTAMP</Text>
+              <Text style={[styles.tableHeaderCell, { width: 125 }]}>RULE ENGAGED</Text>
+              <Text style={[styles.tableHeaderCell, { width: 90, textAlign: 'center' }]}>ACTIONS</Text>
+            </View>
+
+            {threatLogs.length > 0 ? (
+              threatLogs.map((scan) => {
+                const isDangerous = scan.verdict === 'DANGEROUS';
+                const verdictTextColor = isDangerous ? colors.pink : colors.primary;
+                const verdictBg = isDangerous ? 'rgba(255, 45, 85, 0.12)' : 'rgba(0, 240, 255, 0.12)';
+                const confidence = scan.confidence ?? (isDangerous ? 94 : 82);
+                
+                return (
+                  <View key={scan.id} style={styles.tableRow}>
+                    <Text style={[styles.tableCell, { width: 85, fontFamily: Typography.mono, color: colors.textSecondary }]}>
+                      #TH-{String(scan.id).slice(-4)}
+                    </Text>
+                    <Text style={[styles.tableCell, { width: 100, fontWeight: '700', color: colors.text }]}>
+                      {scan.feature.replace('_scan', '').toUpperCase()}
+                    </Text>
+                    <Text style={[styles.tableCell, { flex: 2, color: colors.text }]} numberOfLines={1}>
+                      {scan.input_data}
+                    </Text>
+                    <View style={{ width: 120 }}>
+                      <View style={[styles.tableVerdictBadge, { backgroundColor: verdictBg }]}>
+                        <Text style={[styles.tableVerdictBadgeText, { color: verdictTextColor, fontFamily: Typography.monoBold }]}>
+                          {scan.verdict}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.tableCell, { width: 95, fontFamily: Typography.mono, color: colors.textSecondary }]}>
+                      {confidence}%
+                    </Text>
+                    <Text style={[styles.tableCell, { width: 110, color: colors.textSecondary }]}>
+                      {timeAgo(scan.scanned_at)}
+                    </Text>
+                    <Text style={[styles.tableCell, { width: 125, fontFamily: Typography.mono, color: colors.purple }]}>
+                      {isDangerous ? 'RULE-BLOCK-HIGH' : 'RULE-WARN-MED'}
+                    </Text>
+                    <View style={{ width: 90, alignItems: 'center' }}>
+                      <GlowButton
+                        onPress={() => {
+                          setSelectedScan(scan);
+                          setModalVisible(true);
+                        }}
+                        style={styles.tableActionBtn}
+                        textStyle={styles.tableActionText}
+                        glowColor={colors.primary}
+                      >
+                        Inspect
+                      </GlowButton>
+                    </View>
+                  </View>
+                );
+              })
+            ) : (
+              <Text style={styles.tableEmptyText}>No threats cataloged in database.</Text>
+            )}
+          </View>
+        ) : (
+          <View style={styles.detectionsCard}>
+            {threatLogs.length > 0 ? (
+              threatLogs.map((scan, idx) => (
+                <RecentScanRow
+                  key={scan.id}
+                  scan={scan}
+                  isDark={true}
+                  showBorder={idx < threatLogs.length - 1}
+                  onPress={() => {
+                    setSelectedScan(scan);
+                    setModalVisible(true);
+                  }}
+                />
+              ))
+            ) : (
+              <Text style={[styles.noDetections, { fontFamily: Typography.body }]}>
+                No matching threats found.
+              </Text>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  function renderSystemTab() {
+    return (
+      <View style={styles.tabContentContainer}>
+        {/* System Status Indicators */}
+        <View style={styles.systemInfoCard}>
+          <Text style={styles.sectionTitle}>
+            SYSTEM STATUS
+          </Text>
+          <View style={styles.systemStatusItem}>
+            <Text style={[styles.systemStatusLabel, { fontFamily: Typography.bodyMedium }]}>
+              API Connection
+            </Text>
+            <View style={styles.systemStatusBadge}>
+              <View style={[styles.statusDot, { backgroundColor: colors.green }]} />
+              <Text style={[styles.systemStatusValText, { color: colors.green, fontFamily: Typography.mono }]}>
+                HEALTHY (200)
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.systemStatusItem}>
+            <Text style={[styles.systemStatusLabel, { fontFamily: Typography.bodyMedium }]}>
+              Database Status
+            </Text>
+            <View style={styles.systemStatusBadge}>
+              <View style={[styles.statusDot, { backgroundColor: colors.green }]} />
+              <Text style={[styles.systemStatusValText, { color: colors.green, fontFamily: Typography.mono }]}>
+                CONNECTED
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.systemStatusItem}>
+            <Text style={[styles.systemStatusLabel, { fontFamily: Typography.bodyMedium }]}>
+              Active Security Rules
+            </Text>
+            <Text style={[styles.systemStatusValTextText, { color: colors.text, fontFamily: Typography.mono }]}>
+              14 Rules Engaged
+            </Text>
+          </View>
+        </View>
+
+        {/* Diagnostic Control */}
+        <View style={styles.systemInfoCard}>
+          <Text style={styles.sectionTitle}>
+            DIAGNOSTIC UTILITIES
+          </Text>
+          <Text style={[styles.catLabel, { color: colors.textSecondary, fontFamily: Typography.body, width: '100%', marginBottom: 12 }]}>
+            Run a diagnostic test across scan handlers and API latency.
+          </Text>
+
+          <GlowButton
+            style={styles.primaryActionBtn}
+            onPress={runSystemDiagnostic}
+            disabled={diagnosticRunning}
+            glowColor={colors.purple}
+          >
+            {diagnosticRunning ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="pulse" size={18} color="#fff" style={{ marginRight: 6 }} />
+                <Text style={[styles.primaryActionBtnText, { fontFamily: Typography.bodyMedium }]}>
+                  Run Diagnostics
+                </Text>
+              </View>
+            )}
+          </GlowButton>
+
+          {diagnosticResult !== '' && (
+            <View style={styles.diagnosticResultBox}>
+              <Text style={[styles.diagnosticResultText, { fontFamily: Typography.mono }]}>
+                {diagnosticResult}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Security Config Level */}
+        <View style={styles.systemInfoCard}>
+          <Text style={styles.sectionTitle}>
+            SECURITY SENSITIVITY
+          </Text>
+          <View style={styles.securityConfigRow}>
+            {['Low', 'Standard', 'Paranoid'].map((level) => {
+              const active = securityLevel === level;
+              return (
+                <GlowButton
+                  key={level}
+                  style={[
+                    styles.securityConfigBtn,
+                    active && { backgroundColor: colors.purple, borderColor: colors.purple },
+                  ]}
+                  textStyle={[
+                    styles.securityConfigBtnText,
+                    active ? { color: '#fff' } : { color: colors.textSecondary },
+                  ]}
+                  onPress={() => setSecurityLevel(level)}
+                  glowColor={colors.purple}
+                >
+                  {level}
+                </GlowButton>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Quick Actions Panel */}
+        <View style={styles.actionsRow}>
+          <GlowButton
+            style={styles.exportBtn}
+            onPress={handleExportCSV}
+            glowColor={colors.primary}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="download-outline" size={18} color={colors.primary} />
+              <Text style={[styles.exportBtnText, { color: colors.primary, fontFamily: Typography.bodyMedium }]}>
+                Export CSV
+              </Text>
+            </View>
+          </GlowButton>
+          
+          <GlowButton
+            style={styles.logoutBtn}
+            onPress={flushSystemCache}
+            glowColor={colors.pink}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="trash-outline" size={18} color={colors.pink} />
+              <Text style={[styles.logoutBtnText, { color: colors.pink, fontFamily: Typography.bodyMedium }]}>
+                Flush Cache
+              </Text>
+            </View>
+          </GlowButton>
+        </View>
+        
+        {/* Quick Panel Lock */}
+        <GlowButton
+          style={styles.fullLockBtn}
+          glowColor={colors.pink}
+          onPress={() => setAdminAuthenticated(false)}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="lock-closed" size={16} color="#fff" />
+            <Text style={[styles.fullLockBtnText, { color: '#fff', fontFamily: Typography.bodyMedium }]}>
+              Lock Admin Console
+            </Text>
+          </View>
+        </GlowButton>
+      </View>
+    );
+  }
+
   // Admin Panel Main rendering (if authenticated)
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.glowAmbient, styles.glowPurple, { top: -200, right: -150 }]} />
       <View style={[styles.glowAmbient, styles.glowCyan, { bottom: -200, left: -150 }]} />
 
-      {/* Header */}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + 12 },
-        ]}
-      >
-        <GlowButton
-          onPress={handleBack}
-          style={styles.backButtonHeader}
-          glowColor={colors.purple}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Ionicons name="arrow-back" size={16} color={colors.text} />
-            <Text style={[styles.backText, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Exit</Text>
-          </View>
-        </GlowButton>
-        
-        <View style={styles.headerInfo}>
-          <Text style={[styles.headerTitle, { fontFamily: Typography.monoBold }]}>Admin Panel</Text>
-          <View style={styles.statusBadgeRow}>
-            <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
-            <Text style={[styles.statusBadgeText, { color: colors.primary, fontFamily: Typography.body }]}>
-              Secure Console
-            </Text>
-          </View>
-        </View>
-        
-        <View style={styles.headerRight}>
-          <View style={styles.authBadge}>
-            <Ionicons name="shield-checkmark" size={14} color={colors.green} />
-            <Text style={[styles.authText, { color: colors.green, fontFamily: Typography.mono }]}>ADMIN</Text>
-          </View>
-        </View>
-      </View>
+      {isLargeScreen ? (
+        <View style={styles.sidebarLayout}>
+          {/* Side Bar Navigation */}
+          <View style={styles.sidebar}>
+            <View style={styles.sidebarLogoContainer}>
+              <Ionicons name="shield-checkmark" size={24} color={colors.primary} style={{ marginRight: 8 }} />
+              <Text style={styles.sidebarLogoText}>
+                CYBER<Text style={{ color: colors.primary }}>SHIELD</Text>
+              </Text>
+            </View>
 
-      {/* Modern Tab Bar */}
-      <View style={styles.tabBar}>
-        <TabItem
-          active={activeTab === 'overview'}
-          label="Overview"
-          icon="bar-chart"
-          onPress={() => setActiveTab('overview')}
-        />
-        <TabItem
-          active={activeTab === 'threats'}
-          label="Threat Center"
-          icon="warning"
-          onPress={() => setActiveTab('threats')}
-        />
-        <TabItem
-          active={activeTab === 'system'}
-          label="Diagnostics"
-          icon="cog"
-          onPress={() => setActiveTab('system')}
-        />
-      </View>
-
-      {/* Main Scroll Content */}
-      <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 80 }]}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* TAB 1: OVERVIEW */}
-        {activeTab === 'overview' && (
-          <View style={styles.tabContentContainer}>
-            {/* Modern Stats Grid */}
-            <View style={styles.statsGrid}>
-              <StatCard
-                label="Total Scans"
-                value={stats.total}
-                sub="+8% vs yesterday"
-                color={colors.primary}
-                glowColor={colors.primary}
-                icon="search"
+            <View style={styles.sidebarMenu}>
+              <SidebarItem
+                active={activeTab === 'overview'}
+                label="Overview"
+                icon="bar-chart"
+                onPress={() => setActiveTab('overview')}
               />
-              <StatCard
-                label="Threats Blocked"
-                value={stats.threats}
-                sub="+2 today"
-                color={colors.pink}
-                glowColor={colors.pink}
-                icon="bug"
+              <SidebarItem
+                active={activeTab === 'threats'}
+                label="Threat Center"
+                icon="warning"
+                onPress={() => setActiveTab('threats')}
               />
-              <StatCard
-                label="Safe Rate"
-                value={`${stats.safe_rate}%`}
-                sub="Stable"
-                color={colors.green}
-                glowColor={colors.green}
-                icon="shield-half"
-              />
-              <StatCard
-                label="Today's Scans"
-                value={stats.today_count}
-                sub="24h active logs"
-                color={colors.purple}
-                glowColor={colors.purple}
-                icon="today"
+              <SidebarItem
+                active={activeTab === 'system'}
+                label="Diagnostics"
+                icon="cog"
+                onPress={() => setActiveTab('system')}
               />
             </View>
 
-            {/* Weekly activity Chart Card */}
-            <View style={styles.chartCard}>
-              <Text style={styles.sectionTitle}>
-                WEEKLY THREAT VOLUME
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <WeeklyChart data={stats.daily_counts} isDark={true} height={140} />
-              </ScrollView>
-            </View>
-
-            {/* Category breakdown */}
-            <View style={styles.chartCard}>
-              <Text style={styles.sectionTitle}>
-                BY CATEGORY
-              </Text>
-              {Object.entries(stats.by_category).map(([feature, count]) => {
-                const pct = stats.total > 0 ? (count / stats.total) * 100 : 0;
-                return (
-                  <View key={feature} style={styles.catRow}>
-                    <Text style={[styles.catLabel, { fontFamily: Typography.body }]}>
-                      {feature.replace('_scan', '').toUpperCase()}
-                    </Text>
-                    <View style={styles.catBar}>
-                      <View style={[styles.catFill, { width: `${pct}%`, backgroundColor: colors.purple }]} />
-                    </View>
-                    <Text style={[styles.catCount, { fontFamily: Typography.mono }]}>
-                      {count}
-                    </Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* TAB 2: THREAT CENTER */}
-        {activeTab === 'threats' && (
-          <View style={styles.tabContentContainer}>
-            {/* Search and Filter Area */}
-            <View style={styles.searchFilterCard}>
-              <View style={styles.searchBox}>
-                <Ionicons name="search" size={16} color={colors.textSecondary} style={{ marginRight: 8 }} />
-                <TextInput
-                  placeholder="Search threat logs..."
-                  placeholderTextColor={colors.textMuted}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  style={[styles.searchInput, { fontFamily: Typography.body }]}
-                />
-                {searchQuery !== '' && (
-                  <Pressable onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={16} color={colors.textSecondary} />
-                  </Pressable>
-                )}
-              </View>
-
-              {/* Horizontal Category Filters */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterPillRow}>
-                {['ALL', 'URL', 'QR', 'OTP', 'UPI', 'Screenshot', 'Voice'].map((cat) => (
-                  <FilterPill
-                    key={cat}
-                    cat={cat}
-                    active={categoryFilter === cat}
-                    onPress={() => setCategoryFilter(cat)}
-                  />
-                ))}
-              </ScrollView>
-            </View>
-
-            {/* List of threats */}
-            <Text style={[styles.threatCountText, { fontFamily: Typography.body }]}>
-              Showing {threatLogs.length} threat logs
-            </Text>
-
-            <View style={styles.detectionsCard}>
-              {threatLogs.length > 0 ? (
-                threatLogs.map((scan, idx) => (
-                  <RecentScanRow
-                    key={scan.id}
-                    scan={scan}
-                    isDark={true}
-                    showBorder={idx < threatLogs.length - 1}
-                    onPress={() => {
-                      setSelectedScan(scan);
-                      setModalVisible(true);
-                    }}
-                  />
-                ))
-              ) : (
-                <Text style={[styles.noDetections, { fontFamily: Typography.body }]}>
-                  No matching threats found.
-                </Text>
-              )}
-            </View>
-          </View>
-        )}
-
-        {/* TAB 3: DIAGNOSTICS & SYSTEM */}
-        {activeTab === 'system' && (
-          <View style={styles.tabContentContainer}>
-            {/* System Status Indicators */}
-            <View style={styles.systemInfoCard}>
-              <Text style={styles.sectionTitle}>
-                SYSTEM STATUS
-              </Text>
-              <View style={styles.systemStatusItem}>
-                <Text style={[styles.systemStatusLabel, { fontFamily: Typography.bodyMedium }]}>
-                  API Connection
-                </Text>
-                <View style={styles.systemStatusBadge}>
-                  <View style={[styles.statusDot, { backgroundColor: colors.green }]} />
-                  <Text style={[styles.systemStatusValText, { color: colors.green, fontFamily: Typography.mono }]}>
-                    HEALTHY (200)
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.systemStatusItem}>
-                <Text style={[styles.systemStatusLabel, { fontFamily: Typography.bodyMedium }]}>
-                  Database Status
-                </Text>
-                <View style={styles.systemStatusBadge}>
-                  <View style={[styles.statusDot, { backgroundColor: colors.green }]} />
-                  <Text style={[styles.systemStatusValText, { color: colors.green, fontFamily: Typography.mono }]}>
-                    CONNECTED
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.systemStatusItem}>
-                <Text style={[styles.systemStatusLabel, { fontFamily: Typography.bodyMedium }]}>
-                  Active Security Rules
-                </Text>
-                <Text style={[styles.systemStatusValTextText, { color: colors.text, fontFamily: Typography.mono }]}>
-                  14 Rules Engaged
-                </Text>
-              </View>
-            </View>
-
-            {/* Diagnostic Control */}
-            <View style={styles.systemInfoCard}>
-              <Text style={styles.sectionTitle}>
-                DIAGNOSTIC UTILITIES
-              </Text>
-              <Text style={[styles.catLabel, { color: colors.textSecondary, fontFamily: Typography.body, width: '100%', marginBottom: 12 }]}>
-                Run a diagnostic test across scan handlers and API latency.
-              </Text>
-
-              <GlowButton
-                style={styles.primaryActionBtn}
-                onPress={runSystemDiagnostic}
-                disabled={diagnosticRunning}
-                glowColor={colors.purple}
-              >
-                {diagnosticRunning ? (
-                  <ActivityIndicator color="#fff" size="small" />
-                ) : (
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="pulse" size={18} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={[styles.primaryActionBtnText, { fontFamily: Typography.bodyMedium }]}>
-                      Run Diagnostics
-                    </Text>
-                  </View>
-                )}
-              </GlowButton>
-
-              {diagnosticResult !== '' && (
-                <View style={styles.diagnosticResultBox}>
-                  <Text style={[styles.diagnosticResultText, { fontFamily: Typography.mono }]}>
-                    {diagnosticResult}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Security Config Level */}
-            <View style={styles.systemInfoCard}>
-              <Text style={styles.sectionTitle}>
-                SECURITY SENSITIVITY
-              </Text>
-              <View style={styles.securityConfigRow}>
-                {['Low', 'Standard', 'Paranoid'].map((level) => {
-                  const active = securityLevel === level;
-                  return (
-                    <GlowButton
-                      key={level}
-                      style={[
-                        styles.securityConfigBtn,
-                        active && { backgroundColor: colors.purple, borderColor: colors.purple },
-                      ]}
-                      textStyle={[
-                        styles.securityConfigBtnText,
-                        active ? { color: '#fff' } : { color: colors.textSecondary },
-                      ]}
-                      onPress={() => setSecurityLevel(level)}
-                      glowColor={colors.purple}
-                    >
-                      {level}
-                    </GlowButton>
-                  );
-                })}
-              </View>
-            </View>
-
-            {/* Quick Actions Panel */}
-            <View style={styles.actionsRow}>
-              <GlowButton
-                style={styles.exportBtn}
-                onPress={handleExportCSV}
-                glowColor={colors.primary}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Ionicons name="download-outline" size={18} color={colors.primary} />
-                  <Text style={[styles.exportBtnText, { color: colors.primary, fontFamily: Typography.bodyMedium }]}>
-                    Export CSV
-                  </Text>
-                </View>
-              </GlowButton>
-              
-              <GlowButton
-                style={styles.logoutBtn}
-                onPress={flushSystemCache}
-                glowColor={colors.pink}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons name="trash-outline" size={18} color={colors.pink} />
-                  <Text style={[styles.logoutBtnText, { color: colors.pink, fontFamily: Typography.bodyMedium }]}>
-                    Flush Cache
-                  </Text>
-                </View>
-              </GlowButton>
-            </View>
-            
-            {/* Quick Panel Lock */}
+            {/* Sidebar bottom lock console */}
             <GlowButton
-              style={styles.fullLockBtn}
+              style={styles.sidebarLockBtn}
               glowColor={colors.pink}
               onPress={() => setAdminAuthenticated(false)}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Ionicons name="lock-closed" size={16} color="#fff" />
-                <Text style={[styles.fullLockBtnText, { color: '#fff', fontFamily: Typography.bodyMedium }]}>
-                  Lock Admin Console
+                <Ionicons name="lock-closed" size={14} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700', fontFamily: Typography.bodyMedium }}>
+                  Lock Console
                 </Text>
               </View>
             </GlowButton>
           </View>
-        )}
-      </ScrollView>
+
+          {/* Main content right side */}
+          <View style={styles.mainContent}>
+            <View style={styles.header}>
+              <View style={styles.headerInfo}>
+                <Text style={[styles.headerTitle, { fontFamily: Typography.monoBold }]}>
+                  Admin Panel
+                </Text>
+                <View style={styles.statusBadgeRow}>
+                  <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
+                  <Text style={[styles.statusBadgeText, { color: colors.primary, fontFamily: Typography.body }]}>
+                    {activeTab === 'overview' ? 'Overview' : activeTab === 'threats' ? 'Threat Center' : 'Diagnostics'}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                <GlowButton
+                  onPress={handleBack}
+                  style={styles.backButtonHeader}
+                  glowColor={colors.purple}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name="arrow-back" size={16} color={colors.text} />
+                    <Text style={[styles.backText, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Exit</Text>
+                  </View>
+                </GlowButton>
+                <View style={styles.authBadge}>
+                  <Ionicons name="shield-checkmark" size={14} color={colors.green} />
+                  <Text style={[styles.authText, { color: colors.green, fontFamily: Typography.mono }]}>ADMIN</Text>
+                </View>
+              </View>
+            </View>
+
+            <ScrollView
+              contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 80 }]}
+              showsVerticalScrollIndicator={false}
+            >
+              {activeTab === 'overview' && renderOverviewTab()}
+              {activeTab === 'threats' && renderThreatsTab()}
+              {activeTab === 'system' && renderSystemTab()}
+            </ScrollView>
+          </View>
+        </View>
+      ) : (
+        // Mobile Layout (Fallback tabs on top)
+        <View style={{ flex: 1 }}>
+          {/* Header */}
+          <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+            <GlowButton
+              onPress={handleBack}
+              style={styles.backButtonHeader}
+              glowColor={colors.purple}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="arrow-back" size={16} color={colors.text} />
+                <Text style={[styles.backText, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Exit</Text>
+              </View>
+            </GlowButton>
+            
+            <View style={styles.headerInfo}>
+              <Text style={[styles.headerTitle, { fontFamily: Typography.monoBold }]}>Admin Panel</Text>
+              <View style={styles.statusBadgeRow}>
+                <View style={[styles.statusDot, { backgroundColor: colors.primary }]} />
+                <Text style={[styles.statusBadgeText, { color: colors.primary, fontFamily: Typography.body }]}>
+                  Secure Console
+                </Text>
+              </View>
+            </View>
+            
+            <View style={styles.headerRight}>
+              <View style={styles.authBadge}>
+                <Ionicons name="shield-checkmark" size={14} color={colors.green} />
+                <Text style={[styles.authText, { color: colors.green, fontFamily: Typography.mono }]}>ADMIN</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Tab Bar */}
+          <View style={styles.tabBar}>
+            <TabItem
+              active={activeTab === 'overview'}
+              label="Overview"
+              icon="bar-chart"
+              onPress={() => setActiveTab('overview')}
+            />
+            <TabItem
+              active={activeTab === 'threats'}
+              label="Threat Center"
+              icon="warning"
+              onPress={() => setActiveTab('threats')}
+            />
+            <TabItem
+              active={activeTab === 'system'}
+              label="Diagnostics"
+              icon="cog"
+              onPress={() => setActiveTab('system')}
+            />
+          </View>
+
+          {/* Mobile Scroll Area */}
+          <ScrollView
+            contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 80 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {activeTab === 'overview' && renderOverviewTab()}
+            {activeTab === 'threats' && renderThreatsTab()}
+            {activeTab === 'system' && renderSystemTab()}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Threat Detail Modal */}
       {selectedScan && (
@@ -987,13 +1202,78 @@ const styles = StyleSheet.create({
     fontFamily: Typography.bodySemiBold,
   },
 
+  // Responsive Sidebar Layout
+  sidebarLayout: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  sidebar: {
+    width: 240,
+    backgroundColor: colors.card,
+    borderRightWidth: 1.5,
+    borderColor: colors.border,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+  },
+  sidebarLogoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginBottom: 32,
+  },
+  sidebarLogoText: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: 1.5,
+    fontFamily: Typography.monoBold,
+  },
+  sidebarMenu: {
+    flex: 1,
+    gap: 8,
+  },
+  sidebarItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderLeftWidth: 3,
+    borderColor: 'transparent',
+    position: 'relative',
+  },
+  sidebarLabel: {
+    fontSize: 14,
+  },
+  activeMenuIndicator: {
+    position: 'absolute',
+    right: 12,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.primary,
+  },
+  sidebarLockBtn: {
+    height: 40,
+    backgroundColor: 'rgba(255, 45, 85, 0.1)',
+    borderWidth: 1.5,
+    borderColor: colors.pink,
+    borderRadius: 10,
+    width: '100%',
+  },
+  mainContent: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+
   // Header styles
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 18,
     borderBottomWidth: 1,
     borderColor: colors.border,
   },
@@ -1010,9 +1290,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   headerInfo: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
   statusBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1044,7 +1324,7 @@ const styles = StyleSheet.create({
   },
   authText: { fontSize: 11, fontWeight: '700' },
 
-  // Modern Tab Bar
+  // Tab Bar (Fallback for mobile view)
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -1065,11 +1345,11 @@ const styles = StyleSheet.create({
   },
 
   // Main Scroll & Tab Contents
-  scroll: { padding: 16, gap: 16 },
-  tabContentContainer: { gap: 16 },
+  scroll: { padding: 24, gap: 24 },
+  tabContentContainer: { gap: 24 },
   
   // Overview Tab stats
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between' },
   statCard: {
     width: '48%',
     borderRadius: 18,
@@ -1145,6 +1425,71 @@ const styles = StyleSheet.create({
   threatCountText: {
     fontSize: 13,
     paddingHorizontal: 4,
+    color: colors.textSecondary,
+  },
+
+  // Detailed Table layout for Large screens
+  tableCard: {
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    overflow: 'hidden',
+    paddingVertical: 8,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+  },
+  tableHeaderCell: {
+    color: colors.primary,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderColor: colors.border,
+  },
+  tableCell: {
+    fontSize: 13,
+    paddingRight: 8,
+  },
+  tableVerdictBadge: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  tableVerdictBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  tableActionBtn: {
+    width: 76,
+    height: 28,
+    backgroundColor: 'rgba(0, 240, 255, 0.1)',
+    borderWidth: 1.2,
+    borderColor: colors.primary,
+    borderRadius: 6,
+  },
+  tableActionText: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  tableEmptyText: {
+    paddingVertical: 32,
+    fontSize: 14,
+    textAlign: 'center',
     color: colors.textSecondary,
   },
 

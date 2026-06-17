@@ -61,22 +61,22 @@ export default function LoginScreen({ navigation }) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      {/* Dynamic Security Ambient Glow Background */}
+      {/* Light Theme Soft Ambient Glow Background */}
+      <View style={[styles.glowAmbient, styles.glowBlue]} />
       <View style={[styles.glowAmbient, styles.glowPurple]} />
-      <View style={[styles.glowAmbient, styles.glowCyan]} />
 
       <View style={styles.content}>
         {/* App Logo & Header */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <View style={styles.logoPulse} />
-            <Ionicons name="shield-checkmark" size={38} color="#00f0ff" />
+            <Ionicons name="shield-checkmark" size={38} color="#2f6eff" />
           </View>
-          <Text style={styles.logoText}>CYBER<Text style={{ color: '#00f0ff' }}>SHIELD</Text></Text>
+          <Text style={styles.logoText}>CYBER<Text style={{ color: '#2f6eff' }}>SHIELD</Text></Text>
           <Text style={styles.subtitle}>Threat Intelligence & Real-time Scan Protection</Text>
         </View>
 
-        {/* Security Vault styled login card */}
+        {/* Secure login card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>SECURE AUTHORIZATION</Text>
           <Text style={styles.cardSubtitle}>
@@ -90,7 +90,7 @@ export default function LoginScreen({ navigation }) {
               emailFocused && styles.inputFocused,
             ]}
           >
-            <Ionicons name="mail-outline" size={20} color={emailFocused ? '#00f0ff' : '#5f6b8a'} style={styles.inputIcon} />
+            <Ionicons name="mail-outline" size={20} color={emailFocused ? '#2f6eff' : '#64748b'} style={styles.inputIcon} />
             <TextInput
               testID="email"
               placeholder="Email"
@@ -99,7 +99,7 @@ export default function LoginScreen({ navigation }) {
               keyboardType="email-address"
               autoCapitalize="none"
               style={styles.input}
-              placeholderTextColor="#5f6b8a"
+              placeholderTextColor="#94a3b8"
               onFocus={() => setEmailFocused(true)}
               onBlur={() => setEmailFocused(false)}
             />
@@ -112,7 +112,7 @@ export default function LoginScreen({ navigation }) {
               passwordFocused && styles.inputFocused,
             ]}
           >
-            <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? '#00f0ff' : '#5f6b8a'} style={styles.inputIcon} />
+            <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? '#2f6eff' : '#64748b'} style={styles.inputIcon} />
             <TextInput
               testID="password"
               placeholder="Password"
@@ -120,7 +120,7 @@ export default function LoginScreen({ navigation }) {
               onChangeText={setPassword}
               secureTextEntry
               style={styles.input}
-              placeholderTextColor="#5f6b8a"
+              placeholderTextColor="#94a3b8"
               onFocus={() => setPasswordFocused(true)}
               onBlur={() => setPasswordFocused(false)}
             />
@@ -128,19 +128,19 @@ export default function LoginScreen({ navigation }) {
 
           {error ? (
             <View style={styles.errorContainer}>
-              <Ionicons name="warning-outline" size={16} color="#ff2d55" style={{ marginRight: 6 }} />
+              <Ionicons name="warning-outline" size={16} color="#ef4444" style={{ marginRight: 6 }} />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           ) : null}
 
-          {/* Glowing Log In Button */}
+          {/* Glowing Log In Button (Bright Royal Blue) */}
           <GlowButton
             testID="login-button"
             style={styles.loginButton}
             textStyle={styles.loginButtonText}
             onPress={handleLogin}
             disabled={authLoading}
-            glowColor="#00f0ff"
+            glowColor="#2f6eff"
           >
             {authLoading ? (
               <ActivityIndicator color="#fff" />
@@ -163,7 +163,7 @@ export default function LoginScreen({ navigation }) {
               onPress={() => navigation.navigate('Register')}
               style={styles.linkButtonSecondary}
               textStyle={styles.linkTextSecondary}
-              glowColor="#ff2d55"
+              glowColor="#ec4899"
             >
               Create account
             </GlowButton>
@@ -177,7 +177,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#060913',
+    backgroundColor: '#f3f6fc',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
@@ -188,15 +188,15 @@ const styles = StyleSheet.create({
     width: 400,
     height: 400,
     borderRadius: 200,
-    opacity: 0.15,
+    opacity: 0.08,
   },
-  glowPurple: {
-    backgroundColor: '#8b5cf6',
+  glowBlue: {
+    backgroundColor: '#2f6eff',
     top: -100,
     right: -100,
   },
-  glowCyan: {
-    backgroundColor: '#00f0ff',
+  glowPurple: {
+    backgroundColor: '#8b5cf6',
     bottom: -150,
     left: -100,
   },
@@ -213,16 +213,16 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#121a30',
+    backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#00f0ff',
+    borderColor: '#2f6eff',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
     position: 'relative',
-    shadowColor: '#00f0ff',
+    shadowColor: '#2f6eff',
     shadowRadius: 16,
-    shadowOpacity: 0.5,
+    shadowOpacity: 0.2,
     elevation: 8,
   },
   logoPulse: {
@@ -231,18 +231,18 @@ const styles = StyleSheet.create({
     height: 90,
     borderRadius: 45,
     borderWidth: 1,
-    borderColor: 'rgba(0, 240, 255, 0.2)',
+    borderColor: 'rgba(47, 110, 255, 0.15)',
   },
   logoText: {
     fontSize: 30,
     fontWeight: '800',
-    color: '#ffffff',
+    color: '#0f172a',
     letterSpacing: 2.5,
     fontFamily: Typography.monoBold,
   },
   subtitle: {
     fontSize: 13,
-    color: '#8f9bb3',
+    color: '#64748b',
     marginTop: 8,
     textAlign: 'center',
   },
@@ -250,19 +250,19 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 28,
     borderRadius: 24,
-    backgroundColor: '#121829',
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#1f2943',
-    shadowColor: '#000',
-    shadowRadius: 20,
-    shadowOpacity: 0.4,
+    borderColor: '#e2e8f0',
+    shadowColor: '#0f172a',
+    shadowRadius: 24,
+    shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 10 },
     elevation: 12,
   },
   cardTitle: {
     fontSize: 13,
     fontWeight: '800',
-    color: '#00f0ff',
+    color: '#2f6eff',
     letterSpacing: 1.5,
     marginBottom: 6,
     textAlign: 'center',
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   cardSubtitle: {
     fontSize: 12,
-    color: '#8f9bb3',
+    color: '#64748b',
     marginBottom: 24,
     textAlign: 'center',
     lineHeight: 18,
@@ -280,17 +280,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: 52,
     borderRadius: 12,
-    backgroundColor: '#161f38',
+    backgroundColor: '#f8fafc',
     borderWidth: 1.5,
-    borderColor: '#1f2943',
+    borderColor: '#e2e8f0',
     marginBottom: 16,
     paddingHorizontal: 16,
   },
   inputFocused: {
-    borderColor: '#00f0ff',
-    shadowColor: '#00f0ff',
+    borderColor: '#2f6eff',
+    shadowColor: '#2f6eff',
     shadowRadius: 8,
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.15,
+    backgroundColor: '#ffffff',
   },
   inputIcon: {
     marginRight: 12,
@@ -299,31 +300,32 @@ const styles = StyleSheet.create({
     flex: 1,
     height: '100%',
     fontSize: 14,
-    color: '#ffffff',
+    color: '#0f172a',
+    backgroundColor: 'transparent',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 45, 85, 0.1)',
+    backgroundColor: 'rgba(239, 68, 68, 0.08)',
     borderWidth: 1,
-    borderColor: '#ff2d55',
+    borderColor: '#ef4444',
     borderRadius: 10,
     padding: 10,
     marginBottom: 16,
   },
   errorText: {
-    color: '#ff2d55',
+    color: '#ef4444',
     fontSize: 12,
     flex: 1,
   },
   loginButton: {
     height: 52,
-    backgroundColor: '#00f0ff',
+    backgroundColor: '#2f6eff',
     borderRadius: 12,
     width: '100%',
   },
   loginButtonText: {
-    color: '#060913',
+    color: '#ffffff',
     fontWeight: '800',
     fontSize: 16,
     letterSpacing: 1,
@@ -339,12 +341,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 38,
     borderRadius: 8,
-    backgroundColor: 'rgba(139, 92, 246, 0.1)',
+    backgroundColor: 'rgba(139, 92, 246, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.3)',
+    borderColor: 'rgba(139, 92, 246, 0.15)',
   },
   linkText: {
-    color: '#c084fc',
+    color: '#7c3aed',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -352,12 +354,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 38,
     borderRadius: 8,
-    backgroundColor: 'rgba(255, 45, 85, 0.1)',
+    backgroundColor: 'rgba(236, 72, 153, 0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 45, 85, 0.3)',
+    borderColor: 'rgba(236, 72, 153, 0.15)',
   },
   linkTextSecondary: {
-    color: '#fda4af',
+    color: '#db2777',
     fontSize: 12,
     fontWeight: '600',
   },
