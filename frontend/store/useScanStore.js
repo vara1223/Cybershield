@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '../supabase';
+import { Alert } from 'react-native';
 
 const createScanEntry = (scan, persisted) => ({
   ...scan,
@@ -103,10 +104,22 @@ const useScanStore = create((set, get) => ({
     }
   },
 
+  // Settings
+  notificationsEnabled: true,
+  setNotificationsEnabled: (val) => set({ notificationsEnabled: val }),
+
   addScan: async (scan) => {
     const persisted = await get().saveScanLog(scan);
     const entry = createScanEntry(scan, persisted);
     set((s) => ({ history: [entry, ...s.history] }));
+
+    if (get().notificationsEnabled) {
+      const isSafe = entry.verdict === 'SAFE';
+      const title = isSafe ? "✅ Scan Complete" : "⚠️ Security Alert";
+      const message = `A scan for ${entry.feature.replace('_scan', '').toUpperCase()} completed with verdict: ${entry.verdict}.`;
+      Alert.alert(title, message);
+    }
+
     return entry;
   },
 

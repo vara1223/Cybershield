@@ -310,6 +310,24 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const updateProfileName = async (newName) => {
+    if (!newName || !newName.trim()) return;
+    const trimmed = newName.trim();
+    if (user?.id === 'guest') {
+      setProfile((prev) => prev ? { ...prev, full_name: trimmed } : { full_name: trimmed, email: 'guest@cybershield.local' });
+      return;
+    }
+    if (user?.id) {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({ id: user.id, full_name: trimmed, email: user.email }, { onConflict: 'id' });
+      if (error) {
+        throw new Error(error.message);
+      }
+      await fetchProfile(user.id);
+    }
+  };
+
   const value = useMemo(
     () => ({
       user,
@@ -323,6 +341,7 @@ export function AuthProvider({ children }) {
       verifyRecoveryOtp,
       updatePassword,
       loginAsGuest,
+      updateProfileName,
     }),
     [user, profile, loading, authLoading]
   );

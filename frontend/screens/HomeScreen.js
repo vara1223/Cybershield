@@ -43,33 +43,21 @@ export default function HomeScreen({ navigation }) {
       <StatusBar style={isDark ? 'light' : 'dark'} />
       <TextureBackground isDark={isDark} />
 
-<View style={[styles.header, { paddingTop: insets.top + 18, borderBottomColor: colors.border, backgroundColor: colors.card }]}> 
+      {/* Light Theme Soft Ambient Glow Background */}
+      <View style={[styles.glowAmbient, styles.glowBlue, { opacity: isDark ? 0.02 : 0.05 }]} />
+      <View style={[styles.glowAmbient, styles.glowPurple, { opacity: isDark ? 0.02 : 0.05 }]} />
+
+      <View style={[styles.header, { paddingTop: insets.top + 18, borderBottomColor: colors.border, backgroundColor: colors.card }]}> 
         <View style={styles.headerLeft}>
           <Text style={[styles.greeting, { color: colors.textSecondary, fontFamily: Typography.mono }]}>{greeting}</Text>
-          <Text style={[styles.title, { color: colors.text, fontFamily: Typography.monoBold }]}>Welcome, {profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'User'}</Text>
+          <Text style={[styles.title, { color: colors.text, fontFamily: Typography.monoBold }]}>Welcome, {profile?.full_name || 'User'}</Text>
           <Text style={[styles.subtitle, { color: colors.textSecondary, fontFamily: Typography.body }]}>Stay ahead of threats with fast, intelligent scans.</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={toggleTheme} style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} activeOpacity={0.75}>
-            <Ionicons name={isDark ? 'sunny-outline' : 'moon-outline'} size={22} color={colors.text} />
-          </TouchableOpacity>
           <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} activeOpacity={0.75}>
             <Ionicons name="settings-outline" size={22} color={colors.text} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={signOut} style={[styles.iconButton, { backgroundColor: colors.surface, borderColor: colors.border }]} activeOpacity={0.75} disabled={authLoading}>
-            <Ionicons name="log-out-outline" size={22} color={colors.text} />
-          </TouchableOpacity>
         </View>
-      </View>
-
-      <View style={[styles.profileCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-        <View style={styles.profileInfo}>
-          <Text style={[styles.profileName, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Hello, {profile?.full_name || user?.email || 'User'}</Text>
-          <Text style={[styles.profileSubtitle, { color: colors.textSecondary, fontFamily: Typography.body }]}>Tap to view account settings.</Text>
-        </View>
-        <TouchableOpacity style={[styles.profileButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('Settings')} activeOpacity={0.75}>
-          <Ionicons name="chevron-forward-outline" size={18} color={colors.primary} />
-        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 90 }]}> 
@@ -78,8 +66,8 @@ export default function HomeScreen({ navigation }) {
             <Text style={[styles.quickTitle, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Quick scan</Text>
             <Text style={[styles.quickSubtitle, { color: colors.textSecondary, fontFamily: Typography.body }]}>Scan a URL, message, or screenshot in seconds.</Text>
           </View>
-          <TouchableOpacity style={[styles.quickButton, { backgroundColor: colors.surface, borderColor: colors.border }]} onPress={() => navigation.navigate('URLScan')} activeOpacity={0.85}>
-            <Text style={[styles.quickButtonText, { color: colors.primary }]}>{'Scan now'}</Text>
+          <TouchableOpacity style={[styles.quickButton, { backgroundColor: colors.primary }]} onPress={() => navigation.navigate('URLScan')} activeOpacity={0.85}>
+            <Text style={[styles.quickButtonText, { color: '#ffffff' }]}>Scan now</Text>
           </TouchableOpacity>
         </View>
 
@@ -139,7 +127,24 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, overflow: 'hidden' },
+  glowAmbient: {
+    position: 'absolute',
+    width: 350,
+    height: 350,
+    borderRadius: 175,
+    pointerEvents: 'none',
+  },
+  glowBlue: {
+    backgroundColor: '#2f6eff',
+    top: -50,
+    right: -100,
+  },
+  glowPurple: {
+    backgroundColor: '#8b5cf6',
+    bottom: -100,
+    left: -100,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-end',

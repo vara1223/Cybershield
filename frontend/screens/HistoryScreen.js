@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import useScanStore from '../store/useScanStore';
+import { useAuth } from '../context/AuthContext';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import Header from '../components/Header';
 import RecentScanRow from '../components/RecentScanRow';
@@ -18,6 +19,7 @@ export default function HistoryScreen({ navigation }) {
   const isDark = useScanStore((s) => s.isDark);
   const history = useScanStore((s) => s.history);
   const setCurrentResult = useScanStore((s) => s.setCurrentResult);
+  const { profile } = useAuth();
   const colors = isDark ? Colors.dark : Colors.light;
 
   const [verdictFilter, setVerdictFilter] = useState('ALL');
@@ -54,7 +56,11 @@ export default function HistoryScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TextureBackground isDark={isDark} />
-      <Header title="Scan history" subtitle={`${filtered.length} results`} isDark={isDark} />
+      <Header
+        title="Scan history"
+        subtitle={`${profile?.full_name || 'User'}'s scans • ${filtered.length} logs`}
+        isDark={isDark}
+      />
 
       {/* Filters */}
       <View style={[styles.filtersWrap, { borderBottomColor: colors.border }]}>
