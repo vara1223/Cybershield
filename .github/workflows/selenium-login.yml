@@ -1,16 +1,55 @@
-name: Test Workflow
+name: Selenium E2E Tests
 
 on:
-push:
-branches:
-- main
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
-test:
-runs-on: ubuntu-latest
+  test:
+    runs-on: ubuntu-latest
 
-```
-steps:
-  - name: Test
-    run: echo "Workflow works!"
-```
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Use Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20.x'
+
+    - name: Install Chromedriver and Chromium
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y chromium-browser chromium-chromedriver
+
+    - name: Install Frontend Dependencies
+      working-directory: ./frontend
+      run: npm install
+
+    - name: Install Selenium Dependencies
+      working-directory: ./frontend/selenium-tests
+      run: npm install
+
+    - name: Start Expo Web Dev Server
+      working-directory: ./frontend
+      run: |
+        npx expo start --web --non-interactive &
+        echo "Waiting for Expo to bundle (up to 60s)..."
+        for i in $(seq 1 12); do
+          sleep 5
+          if curl -sf http://localhost:8081 > /dev/null 2>&1; then
+            echo "Expo dev server is ready!"
+            break
+          fi
+          echo "Still waiting... ($((i*5))s)"
+        done
+        curl -f http://localhost:8081 || (echo "Expo server failed to start" && exit 1)
+
+    - name: Run Selenium Tests
+      working-directory: ./frontend/selenium-tests
+      run: npm run login
+      env:
+        DEBUG: '*'
+        CHROME_BIN: /usr/bin/chromium-browser
+        CHROMEDRIVER_PATH: /usr/bin/chromedriver
