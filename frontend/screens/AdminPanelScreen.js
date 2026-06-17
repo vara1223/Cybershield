@@ -1467,7 +1467,7 @@ const styles = StyleSheet.create({
   tabContentContainer: { gap: 24 },
   
   // Overview Tab stats
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'space-between' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' },
   statCard: {
     width: '48%',
     borderRadius: 18,
