@@ -11,6 +11,11 @@ describe('CyberShield Login E2E Test', function() {
         options.addArguments('--no-sandbox');
         options.addArguments('--disable-dev-shm-usage');
         
+        const { logging } = require('selenium-webdriver');
+        let prefs = new logging.Preferences();
+        prefs.setLevel(logging.Type.BROWSER, logging.Level.ALL);
+        options.setLoggingPrefs(prefs);
+        
         if (process.env.CHROME_BIN) {
             options.setChromeBinaryPath(process.env.CHROME_BIN);
         }
@@ -105,6 +110,16 @@ describe('CyberShield Login E2E Test', function() {
         } catch (error) {
             console.error('Test failed with error:', error.message);
             console.error('Stack:', error.stack);
+            
+            try {
+                const logs = await driver.manage().logs().get('browser');
+                console.log('=== BROWSER CONSOLE LOGS ===');
+                console.log(JSON.stringify(logs, null, 2));
+                console.log('============================');
+            } catch (logError) {
+                console.error('Failed to retrieve browser console logs:', logError.message);
+            }
+            
             throw error;
         }
     });
