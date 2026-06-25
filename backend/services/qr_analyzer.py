@@ -1,52 +1,70 @@
+# QR Analyzer module supporting OpenCV and Pyzbar
 import base64
 import io
 from services.url_analyzer import analyze_url
 from utils.confidence import clamp, score_to_verdict
 
 try:
+    import cv2
+    import numpy as np
+    OPENCV_AVAILABLE = True
+except Exception:
+    OPENCV_AVAILABLE = False
+
+try:
     from PIL import Image
     from pyzbar.pyzbar import decode as pyzbar_decode
-    QR_DECODE_AVAILABLE = True
+    PYZBAR_AVAILABLE = True
 except Exception:
-    QR_DECODE_AVAILABLE = False
+    PYZBAR_AVAILABLE = False
 
 def analyze_qr(image_b64: str = None, decoded_content: str = None) -> dict:
     flags = []
     qr_content = decoded_content
 
-    if not qr_content and image_b64 and QR_DECODE_AVAILABLE:
-        try:
-            image_data = base64.b64decode(image_b64)
-            image = Image.open(io.BytesIO(image_data))
-            decoded = pyzbar_decode(image)
-            if decoded:
-                qr_content = decoded[0].data.decode("utf-8", errors="replace")
-                flags.append("qr_decoded_from_image")
-            else:
-                return {
-                    "verdict": "SUSPICIOUS",
-                    "confidence": 50,
-                    "explanation": "Could not decode the QR code from the image. It may be damaged, encrypted, or use an unsupported format.",
-                    "flags": ["qr_decode_failed"],
-                    "qr_content": None,
-                }
-        except Exception as e:
+    if not qr_content and image_b64:
+        # Try OpenCV first
+        if OPENCV_AVAILABLE:
+            try:
+                image_data = base64.b64decode(image_b64)
+                nparr = np.frombuffer(image_data, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img is not None:
+                    detector = cv2.QRCodeDetector()
+                    data, bbox, _ = detector.detectAndDecode(img)
+                    if data:
+                        qr_content = data
+                        flags.append("qr_decoded_via_opencv")
+            except Exception as e:
+                pass
+
+        # Fallback to pyzbar
+        if not qr_content and PYZBAR_AVAILABLE:
+            try:
+                image_data = base64.b64decode(image_b64)
+                image = Image.open(io.BytesIO(image_data))
+                decoded = pyzbar_decode(image)
+                if decoded:
+                    qr_content = decoded[0].data.decode("utf-8", errors="replace")
+                    flags.append("qr_decoded_via_pyzbar")
+            except Exception:
+                pass
+
+        if not qr_content:
             return {
                 "verdict": "SUSPICIOUS",
-                "confidence": 40,
-                "explanation": f"QR code processing failed: {str(e)[:100]}",
-                "flags": ["qr_processing_error"],
+                "confidence": 50,
+                "explanation": "Could not decode any QR code content from the uploaded image. The code may be blurry, damaged, or in an unsupported layout.",
+                "flags": ["qr_decode_failed"],
                 "qr_content": None,
             }
 
     if not qr_content:
-        if not QR_DECODE_AVAILABLE:
-            flags.append("qr_lib_unavailable")
         return {
             "verdict": "SUSPICIOUS",
             "confidence": 35,
-            "explanation": "No QR content could be extracted. Install pyzbar for image-based QR decoding.",
-            "flags": flags + ["no_content"],
+            "explanation": "No QR content was provided or could be extracted from the request.",
+            "flags": ["no_content"],
             "qr_content": None,
         }
 

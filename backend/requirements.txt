@@ -42,3 +42,9 @@ static-ffmpeg>=2.5            # bundles ffmpeg, no system install needed
 #   Windows: https://github.com/UB-Mannheim/tesseract/wiki
 #   Ubuntu:  sudo apt install tesseract-ocr   |   macOS: brew install tesseract
 pytesseract>=0.3.10
+
+# ── Excel generation (admin export endpoint) ─────────────────────────────────
+openpyxl>=3.1.2
+
+
+opencv-python-headless==4.13.0.92

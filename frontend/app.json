@@ -6,12 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.cybershield.app",
@@ -27,7 +21,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.cybershield.app",
-      "usesCleartextTraffic": true,
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -44,6 +37,14 @@
     },
     "plugins": [
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Allow CyberShield to access your camera for QR code scanning."
@@ -56,12 +57,20 @@
         }
       ],
       [
-        "expo-av",
+        "expo-audio",
         {
           "microphonePermission": "Allow CyberShield to access your microphone for voice scam detection."
         }
       ],
-      "./plugins/withNetworkSecurityConfig"
+      "./plugins/withNetworkSecurityConfig",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "proguardRules": "./proguard-rules.pro"
+          }
+        }
+      ]
     ],
     "extra": {
       "eas": {

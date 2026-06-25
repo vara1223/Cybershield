@@ -5,23 +5,29 @@ import { Colors, Typography, Radius, Shadow, Spacing } from '../constants/theme'
 
 export default function ScanToolCard({ icon, label, accentColor, onPress, isDark = false }) {
   const colors = isDark ? Colors.dark : Colors.light;
-  const iconBg = accentColor + (isDark ? '25' : '18');
+  
+  // Custom pastel-colored backgrounds and borders matching their tool categories
+  const cardBg = accentColor + (isDark ? '20' : '0F'); // ~12% opacity in dark, ~6% in light
+  const cardBorder = accentColor + (isDark ? '65' : '40'); // ~40% opacity in dark, ~25% in light
 
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.75}
+      activeOpacity={0.7}
       style={[
         styles.card,
         {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
+          backgroundColor: cardBg,
+          borderColor: cardBorder,
+          shadowColor: accentColor,
+          shadowOpacity: isDark ? 0.2 : 0.08,
+          shadowRadius: 6,
+          shadowOffset: { width: 0, height: 3 },
         },
-        Shadow.sm,
       ]}
     >
-      <View style={[styles.iconWrap, { backgroundColor: iconBg }]}>
-        <Ionicons name={icon} size={20} color={accentColor} />
+      <View style={[styles.iconWrap, { backgroundColor: accentColor }]}>
+        <Ionicons name={icon} size={20} color="#ffffff" />
       </View>
       <Text style={[styles.label, { color: colors.text, fontFamily: Typography.bodyMedium }]} numberOfLines={1}>
         {label}

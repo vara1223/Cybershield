@@ -12,14 +12,13 @@ import Constants from 'expo-constants';
 //               APK, set FALLBACK_URL to the backend laptop's IP and rebuild.
 // ---------------------------------------------------------------------------
 const BACKEND_PORT = 8000;
-const FALLBACK_URL = 'http://10.20.241.216:8000'; // only used by standalone APK builds
+const FALLBACK_URL = 'http://10.190.47.216:8000'; // only used by standalone APK builds
 
 function resolveBaseUrl() {
-  // On web, window.location gives us the correct host
   if (Platform.OS === 'web') {
     return `http://localhost:${BACKEND_PORT}`;
   }
-  // Metro dev-server host, e.g. "192.168.1.50:8081" (present only in Expo Go / dev)
+  // Metro dev-server host, e.g. "192.168.1.50:8081"
   const hostUri =
     Constants.expoConfig?.hostUri ||
     Constants.expoGoConfig?.debuggerHost ||
@@ -27,7 +26,12 @@ function resolveBaseUrl() {
     Constants.manifest2?.extra?.expoGo?.debuggerHost ||
     '';
   const host = hostUri.split(':')[0];
-  if (host) return `http://${host}:${BACKEND_PORT}`;
+  if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    return `http://${host}:${BACKEND_PORT}`;
+  }
+  if (__DEV__) {
+    return `http://localhost:${BACKEND_PORT}`;
+  }
   return FALLBACK_URL;
 }
 
@@ -60,6 +64,10 @@ client.interceptors.request.use((config) => {
  * On web: uses fetch + FileReader (works with blob:// and data: URIs too).
  */
 async function fileToBase64(uri) {
+  if (typeof uri === 'string' && uri.startsWith('data:')) {
+    const parts = uri.split(',');
+    return parts[1] || parts[0];
+  }
   if (Platform.OS === 'web') {
     const response = await fetch(uri);
     const blob = await response.blob();
@@ -75,7 +83,7 @@ async function fileToBase64(uri) {
     });
   }
   // Native path — lazy-import to avoid crashing on web bundle
-  const FileSystem = await import('expo-file-system');
+  const FileSystem = await import('expo-file-system/src/legacy');
   const readFn = FileSystem.readAsStringAsync || FileSystem.default?.readAsStringAsync;
   const base64 = await readFn(uri, { encoding: FileSystem.EncodingType?.Base64 || 'base64' });
   return base64;

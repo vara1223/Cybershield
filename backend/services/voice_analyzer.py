@@ -11,7 +11,7 @@ from utils.confidence import clamp, score_to_verdict
 # ---------------------------------------------------------------------------
 try:
     from openai import OpenAI as _OpenAI
-    _oa_client = _OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    _oa_client = _OpenAI(api_key=os.getenv("OPENAI_API_KEY"), timeout=30.0)
     OPENAI_AVAILABLE = bool(os.getenv("OPENAI_API_KEY"))
 except ImportError:
     OPENAI_AVAILABLE = False
@@ -116,8 +116,12 @@ def _transcribe_openai(audio_bytes: bytes, audio_format: str) -> str:
         with open(tmp_path, "rb") as f:
             result = _oa_client.audio.transcriptions.create(
                 model="whisper-1", file=f, response_format="text",
+                timeout=30.0
             )
         return result.strip() if isinstance(result, str) else result
+    except Exception as e:
+        print(f"OpenAI transcription request failed or timed out: {e}")
+        return ""
     finally:
         try:
             os.unlink(tmp_path)

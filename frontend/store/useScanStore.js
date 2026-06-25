@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '../supabase';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { sendLocalNotification } from '../utils/notifications';
 
 const createScanEntry = (scan, persisted) => ({
   ...scan,
@@ -28,16 +30,30 @@ const useScanStore = create((set, get) => ({
 
   saveScanLog: async (scan) => {
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.log('Supabase auth user fetch error:', userError.message);
-        return null;
-      }
-      const userId = userData?.user?.id;
-      if (!userId || userId === 'guest') {
-        return null;
+      const userId = await AsyncStorage.getItem('current_user_id').catch(() => null);
+      const isMockOrGuest = !userId || userId === 'guest' || userId === 'test-user-id';
+
+      if (isMockOrGuest) {
+        const mockEntry = {
+          id: Date.now(),
+          scanned_at: new Date().toISOString(),
+          feature: scan.feature ?? 'unknown',
+          verdict: scan.verdict ?? 'UNKNOWN',
+          confidence: scan.confidence ?? null,
+          input_data: scan.input_data ?? null,
+          explanation: scan.explanation ?? null,
+          tips: scan.tips ?? null,
+          raw: scan.raw ?? null,
+        };
+        const storageKey = `scan_history_${userId || 'guest'}`;
+        const localHistoryRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
+        const localHistory = localHistoryRaw ? JSON.parse(localHistoryRaw) : [];
+        localHistory.unshift(mockEntry);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(localHistory.slice(0, 100))).catch(() => {});
+        return mockEntry;
       }
 
+      // Real Supabase user path
       const payload = {
         user_id: userId,
         feature: scan.feature ?? 'unknown',
@@ -56,8 +72,18 @@ const useScanStore = create((set, get) => ({
         .single();
 
       if (error) {
-        console.log('Supabase scan_logs insert error:', error.message);
-        return null;
+        console.log('Supabase scan_logs insert error, falling back to local storage:', error.message);
+        const mockEntry = {
+          ...payload,
+          id: Date.now(),
+          scanned_at: new Date().toISOString(),
+        };
+        const storageKey = `scan_history_${userId}`;
+        const localHistoryRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
+        const localHistory = localHistoryRaw ? JSON.parse(localHistoryRaw) : [];
+        localHistory.unshift(mockEntry);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(localHistory.slice(0, 100))).catch(() => {});
+        return mockEntry;
       }
       return data;
     } catch (err) {
@@ -69,18 +95,18 @@ const useScanStore = create((set, get) => ({
   loadHistory: async () => {
     set({ historyLoading: true });
     try {
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      if (userError) {
-        console.log('Supabase auth user fetch error:', userError.message);
-        set({ history: [] });
-        return [];
-      }
-      const userId = userData?.user?.id;
-      if (!userId || userId === 'guest') {
-        set({ history: [] });
-        return [];
+      const userId = await AsyncStorage.getItem('current_user_id').catch(() => null);
+      const isMockOrGuest = !userId || userId === 'guest' || userId === 'test-user-id';
+
+      if (isMockOrGuest) {
+        const storageKey = `scan_history_${userId || 'guest'}`;
+        const localHistoryRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
+        const localHistory = localHistoryRaw ? JSON.parse(localHistoryRaw) : [];
+        set({ history: localHistory });
+        return localHistory;
       }
 
+      // Real Supabase user path
       const { data, error } = await supabase
         .from('scan_logs')
         .select('id, feature, verdict, confidence, input_data, explanation, tips, raw, scanned_at')
@@ -88,10 +114,17 @@ const useScanStore = create((set, get) => ({
         .limit(100);
 
       if (error) {
-        console.log('Supabase scan_logs fetch error:', error.message);
-        set({ history: [] });
-        return [];
+        console.log('Supabase scan_logs fetch error, falling back to local history:', error.message);
+        const storageKey = `scan_history_${userId}`;
+        const localHistoryRaw = await AsyncStorage.getItem(storageKey).catch(() => null);
+        const localHistory = localHistoryRaw ? JSON.parse(localHistoryRaw) : [];
+        set({ history: localHistory });
+        return localHistory;
       }
+
+      // Sync local storage with fetched Supabase data
+      const storageKey = `scan_history_${userId}`;
+      await AsyncStorage.setItem(storageKey, JSON.stringify(data ?? [])).catch(() => {});
 
       set({ history: data ?? [] });
       return data ?? [];
@@ -117,7 +150,12 @@ const useScanStore = create((set, get) => ({
       const isSafe = entry.verdict === 'SAFE';
       const title = isSafe ? "✅ Scan Complete" : "⚠️ Security Alert";
       const message = `A scan for ${entry.feature.replace('_scan', '').toUpperCase()} completed with verdict: ${entry.verdict}.`;
-      Alert.alert(title, message);
+      
+      if (Platform.OS === 'web') {
+        Alert.alert(title, message);
+      } else {
+        await sendLocalNotification(title, message);
+      }
     }
 
     return entry;

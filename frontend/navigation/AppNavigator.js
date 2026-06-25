@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import useScanStore from '../store/useScanStore';
 import { Colors, Typography } from '../constants/theme';
 import { useAuth } from '../context/AuthContext';
+import { navigationRef } from './navigationRef';
+import * as Linking from 'expo-linking';
 
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
@@ -25,6 +27,34 @@ import AdminPanelScreen from '../screens/AdminPanelScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+const linking = {
+  prefixes: [Linking.createURL('/')],
+  config: {
+    screens: {
+      Main: {
+        path: '',
+        screens: {
+          Home: 'home',
+          Scan: 'scan',
+          History: 'history',
+        },
+      },
+      Result: 'result',
+      Settings: 'settings',
+      URLScan: 'url-scan',
+      ScreenshotScan: 'screenshot-scan',
+      QRScan: 'qr-scan',
+      OTPScan: 'otp-scan',
+      UPIScan: 'upi-scan',
+      VoiceScan: 'voice-scan',
+      Login: 'login',
+      Register: 'register',
+      ResetPassword: 'reset-password',
+      Admin: 'admin',
+    },
+  },
+};
 
 function TabBarIcon({ name, focused, color }) {
   return (
@@ -88,12 +118,15 @@ export default function AppNavigator() {
   const { user, loading } = useAuth();
   const colors = isDark ? Colors.dark : Colors.light;
   const loadHistory = useScanStore((s) => s.loadHistory);
+  const clearHistory = useScanStore((s) => s.clearHistory);
 
   useEffect(() => {
     if (user) {
       loadHistory();
+    } else {
+      clearHistory();
     }
-  }, [user, loadHistory]);
+  }, [user, loadHistory, clearHistory]);
 
   const navTheme = {
     ...(isDark ? DarkTheme : DefaultTheme),
@@ -115,7 +148,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme} linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <>

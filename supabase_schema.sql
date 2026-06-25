@@ -4,6 +4,7 @@ CREATE TABLE profiles (
     id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
     full_name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    avatar_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

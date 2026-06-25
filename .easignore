@@ -1,0 +1,15 @@
+# Ignore local native directories in all subfolders
+**/android/
+**/ios/
+
+# Ignore dependency and build cache folders in all subfolders
+**/node_modules/
+**/.expo/
+**/.eas/
+**/dist/
+**/build/
+
+# Ignore backend and test reports
+backend/
+CyberShield_Selenium_Test_Report.xlsx
+*.log

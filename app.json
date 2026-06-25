@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "e7944325-e31d-4fd8-a785-aa4ad40e417d"
+      }
+    },
+    "android": {
+      "package": "com.vara13.cybershield"
+    },
+    "plugins": [
+      "expo-audio"
+    ]
+  }
+}

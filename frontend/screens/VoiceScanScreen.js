@@ -2,15 +2,26 @@ import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated, ScrollView, Platform } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import useScanStore from '../store/useScanStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import Header from '../components/Header';
 import ScanLineLoader from '../components/ScanLineLoader';
 import TextureBackground from '../components/TextureBackground';
 import api from '../services/api';
+import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 
 const IS_WEB = Platform.OS === 'web';
 
+const WAVEFORM_COLORS = [
+  '#4361EE',
+  '#3F37C9',
+  '#7209B7',
+  '#F72585',
+  '#7209B7',
+  '#3F37C9',
+  '#4361EE',
+];
 
 export default function VoiceScanScreen({ navigation }) {
   const isDark = useScanStore((s) => s.isDark);
@@ -18,7 +29,7 @@ export default function VoiceScanScreen({ navigation }) {
   const setCurrentResult = useScanStore((s) => s.setCurrentResult);
   const colors = isDark ? Colors.dark : Colors.light;
 
-  const [recording, setRecording] = useState(null);         // native: expo-av Recording obj
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [mediaRecorder, setMediaRecorder] = useState(null); // web: MediaRecorder obj
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -27,7 +38,6 @@ export default function VoiceScanScreen({ navigation }) {
   const [transcript, setTranscript] = useState(null);
   const [analysisVerdict, setAnalysisVerdict] = useState(null);
   const webChunksRef = useRef([]);
-  // Hidden file input ref for web audio upload
   const fileInputRef = useRef(null);
 
   const timerRef = useRef(null);
@@ -59,7 +69,7 @@ export default function VoiceScanScreen({ navigation }) {
     Animated.timing(pulseAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
   }
 
-  // ─── Web recording via MediaRecorder ─────────────────────────────────────
+  // Web recording via MediaRecorder
   async function startRecordingWeb() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -90,7 +100,6 @@ export default function VoiceScanScreen({ navigation }) {
         setIsRecording(false);
         clearInterval(timerRef.current);
         stopPulse();
-        // Stop all tracks to release microphone
         mediaRecorder.stream.getTracks().forEach((t) => t.stop());
         resolve(url);
       };
@@ -98,15 +107,17 @@ export default function VoiceScanScreen({ navigation }) {
     });
   }
 
-  // ─── Native recording via expo-av ────────────────────────────────────────
+  // Native recording via expo-audio
   async function startRecordingNative() {
     try {
-      const { Audio } = await import('expo-av');
-      const { status } = await Audio.requestPermissionsAsync();
-      if (status !== 'granted') { Alert.alert('Permission needed', 'Allow microphone access to record voice.'); return; }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
-      const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      setRecording(rec);
+      const { status } = await requestRecordingPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Allow microphone access to record voice.');
+        return;
+      }
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await audioRecorder.prepareToRecordAsync();
+      audioRecorder.record();
       setIsRecording(true);
       setDuration(0);
       setRecordingUri(null);
@@ -120,95 +131,97 @@ export default function VoiceScanScreen({ navigation }) {
   }
 
   async function stopRecordingNative() {
-    if (!recording) return null;
-    clearInterval(timerRef.current);
-    stopPulse();
+    if (!audioRecorder) return null;
     try {
-      await recording.stopAndUnloadAsync();
-      const uri = recording.getURI();
+      await audioRecorder.stop();
+      const uri = audioRecorder.uri;
       setRecordingUri(uri);
-      setRecording(null);
       setIsRecording(false);
+      clearInterval(timerRef.current);
+      stopPulse();
       return uri;
     } catch (e) {
-      Alert.alert('Error', e.message);
+      console.log(e);
       return null;
     }
   }
 
-  // ─── Unified start/stop ───────────────────────────────────────────────────
-  async function startRecording() {
-    if (IS_WEB) return startRecordingWeb();
-    return startRecordingNative();
-  }
+  const startRecording = IS_WEB ? startRecordingWeb : startRecordingNative;
+  const stopRecording = IS_WEB ? stopRecordingWeb : stopRecordingNative;
 
-  async function stopRecording() {
-    if (IS_WEB) return stopRecordingWeb();
-    return stopRecordingNative();
-  }
-
-  // ─── Upload audio ─────────────────────────────────────────────────────────
   async function handleUpload() {
     if (IS_WEB) {
-      // On web: trigger hidden <input type="file">
-      fileInputRef.current && fileInputRef.current.click();
+      fileInputRef.current?.click();
       return;
     }
-    const result = await DocumentPicker.getDocumentAsync({ type: ['audio/*'] });
-    if (!result.canceled && result.assets[0]) {
-      setRecordingUri(result.assets[0].uri);
-      setDuration(0);
+    // Native document picker
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
+      if (!result.canceled && result.assets?.[0]) {
+        setRecordingUri(result.assets[0].uri);
+        setTranscript(null);
+        setAnalysisVerdict(null);
+        setDuration(0);
+        Alert.alert('Audio loaded', 'Audio file selected successfully. Tap Analyze to begin transcription.');
+      }
+    } catch (e) {
+      Alert.alert('Error picking document', e.message);
     }
   }
 
-  function handleWebFileChange(e) {
-    const file = e.target.files && e.target.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    setRecordingUri(url);
-    setDuration(0);
-    // Reset input so same file can be picked again
-    e.target.value = '';
-  }
+  const handleWebFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setRecordingUri(url);
+      setTranscript(null);
+      setAnalysisVerdict(null);
+      setDuration(0);
+      Alert.alert('Audio loaded', 'Audio file selected successfully. Tap Analyze to begin transcription.');
+    }
+  };
 
   async function handleAnalyze() {
-    if (!recordingUri && !isRecording) { Alert.alert('No audio', 'Record or upload audio first.'); return; }
-    let uriToAnalyze = recordingUri;
+    let uri = recordingUri;
     if (isRecording) {
-      uriToAnalyze = await stopRecording();
+      uri = await stopRecording();
     }
-    if (!uriToAnalyze) { Alert.alert('No audio', 'Could not get recording URI.'); return; }
+    if (!uri) {
+      Alert.alert('No audio source', 'Please record a call or upload an audio file first.');
+      return;
+    }
+
     setLoading(true);
-    setTranscript(null);
-    setAnalysisVerdict(null);
     try {
-      // On web, webm recordings are sent as 'webm'; uploads keep their format
       const format = IS_WEB ? 'webm' : 'm4a';
-      const res = await api.analyzeVoice(uriToAnalyze, format);
-      res.input_data = '[voice recording]';
-      const realTranscript = res.raw?.transcript || res.transcript || '';
-      setTranscript(realTranscript);
-      setAnalysisVerdict(res.verdict);
+      const res = await api.analyzeVoice(uri, format);
+      res.input_data = '[Voice audio file]';
       addScan(res);
       setCurrentResult(res);
-      navigation.navigate('Result');
+      setTranscript(res.raw?.transcript || '');
+      setAnalysisVerdict(res.verdict);
+      setTimeout(() => {
+        navigation.navigate('Result');
+      }, 1500);
     } catch (e) {
-      Alert.alert(
-        'Analysis failed',
-        e?.response?.data?.detail || e?.message || 'Could not reach the server. Make sure the backend is running on port 8000.',
-      );
-    } finally { setLoading(false); }
+      Alert.alert('Analysis failed', e?.response?.data?.detail || e?.message || 'Cannot reach the backend.');
+    } finally {
+      setLoading(false);
+    }
   }
 
-  const formatTime = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const formatTime = (secs) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TextureBackground isDark={isDark} />
-      {loading && <ScanLineLoader isDark={isDark} label="Transcribing audio..." />}
-      <Header title="Voice scanner" subtitle="Record or upload a call" isDark={isDark} onBack={() => navigation.goBack()} />
+      {loading && <ScanLineLoader isDark={isDark} label="Transcribing call with Whisper..." />}
+      <Header title="Voice Scanner" subtitle="Record or upload audio to spot scams" isDark={isDark} onBack={() => navigation.goBack()} />
 
-      {/* Hidden file input for web audio upload */}
       {IS_WEB && (
         <input
           ref={fileInputRef}
@@ -219,37 +232,52 @@ export default function VoiceScanScreen({ navigation }) {
         />
       )}
 
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 80 }]} showsVerticalScrollIndicator={false}>
-        {/* Record button */}
-        <View style={styles.recordSection}>
-          <Animated.View style={[styles.pulseOuter, { transform: [{ scale: pulseAnim }], backgroundColor: isRecording ? '#EF444420' : colors.surface }]}>
+      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 60 }]} showsVerticalScrollIndicator={false}>
+        {/* Record circular area */}
+        <View style={[styles.recordSection, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+          <Animated.View
+            style={[
+              styles.pulseOuter,
+              {
+                transform: [{ scale: pulseAnim }],
+                backgroundColor: isRecording
+                  ? 'rgba(239, 68, 68, 0.15)'
+                  : (isDark ? 'rgba(67, 97, 238, 0.08)' : 'rgba(67, 97, 238, 0.04)'),
+              }
+            ]}
+          >
             <TouchableOpacity
-              style={[styles.recordBtn, { backgroundColor: isRecording ? '#EF4444' : colors.card, borderColor: isRecording ? '#EF4444' : colors.border }, Shadow.md]}
               onPress={isRecording ? stopRecording : startRecording}
               activeOpacity={0.85}
+              style={styles.recordBtnWrap}
             >
-              <Ionicons name={isRecording ? 'stop' : 'mic'} size={36} color={isRecording ? '#fff' : colors.text} />
+              <LinearGradient
+                colors={isRecording ? ['#FF007F', '#EF4444'] : ['#4361EE', '#3A0CA3']}
+                style={styles.recordBtn}
+              >
+                <Ionicons name={isRecording ? 'stop' : 'mic'} size={40} color="#fff" />
+              </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
 
           {isRecording && (
-            <Text style={[styles.timer, { color: Colors.verdict.DANGEROUS, fontFamily: Typography.monoBold }]}>
-              Recording... {formatTime(duration)}
+            <Text style={[styles.timer, { color: '#FF007F', fontWeight: '800' }]}>
+              Recording: {formatTime(duration)}
             </Text>
           )}
           {recordingUri && !isRecording && (
-            <Text style={[styles.timer, { color: Colors.verdict.SAFE, fontFamily: Typography.mono }]}>
-              Recorded {formatTime(duration)} — ready to analyze
+            <Text style={[styles.timer, { color: Colors.verdict.SAFE, fontWeight: '700' }]}>
+              Audio Ready · {formatTime(duration)}
             </Text>
           )}
           {!isRecording && !recordingUri && (
-            <Text style={[styles.timer, { color: colors.textSecondary, fontFamily: Typography.mono }]}>
-              Tap to start recording
+            <Text style={[styles.timer, { color: colors.textSecondary, fontWeight: '600' }]}>
+              Tap microphone to record
             </Text>
           )}
 
-          {/* Waveform */}
-          {isRecording && (
+          {/* Color Waveform */}
+          {isRecording ? (
             <View style={styles.waveform}>
               {waveAnims.map((anim, i) => (
                 <Animated.View
@@ -257,80 +285,109 @@ export default function VoiceScanScreen({ navigation }) {
                   style={[
                     styles.waveBar,
                     {
-                      backgroundColor: Colors.light.primary,
-                      height: anim.interpolate({ inputRange: [0, 1], outputRange: [6, 40] }),
+                      backgroundColor: WAVEFORM_COLORS[i],
+                      height: anim.interpolate({ inputRange: [0, 1], outputRange: [6, 44] }),
                     },
                   ]}
                 />
               ))}
             </View>
+          ) : (
+            <View style={styles.waveformPlaceholder}>
+              <View style={[styles.placeholderBar, { backgroundColor: colors.border }]} />
+              <View style={[styles.placeholderBar, { backgroundColor: colors.border }]} />
+              <View style={[styles.placeholderBar, { backgroundColor: colors.border }]} />
+              <View style={[styles.placeholderBar, { backgroundColor: colors.border }]} />
+              <View style={[styles.placeholderBar, { backgroundColor: colors.border }]} />
+            </View>
           )}
         </View>
 
-        {/* Action buttons */}
+        {/* Action Row */}
         <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            style={[styles.actionBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
             onPress={handleUpload}
             activeOpacity={0.8}
           >
-            <Ionicons name="cloud-upload-outline" size={18} color={colors.text} />
-            <Text style={[styles.actionBtnText, { color: colors.text, fontFamily: Typography.bodyMedium }]}>Upload audio</Text>
+            <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
+            <Text style={[styles.actionBtnText, { color: colors.text }]}>Upload Audio</Text>
           </TouchableOpacity>
+
           <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: isRecording ? '#EF444415' : colors.surface, borderColor: isRecording ? Colors.verdict.DANGEROUS : colors.border }]}
+            style={styles.analyzeBtnWrap}
             onPress={handleAnalyze}
             activeOpacity={0.8}
             disabled={!isRecording && !recordingUri}
           >
-            <Ionicons name="stop-circle-outline" size={18} color={isRecording ? Colors.verdict.DANGEROUS : colors.textMuted} />
-            <Text style={[styles.actionBtnText, { color: isRecording ? Colors.verdict.DANGEROUS : colors.textMuted, fontFamily: Typography.bodyMedium }]}>
-              {isRecording ? 'Stop & analyze' : 'Analyze'}
-            </Text>
+            <LinearGradient
+              colors={isRecording ? ['#FF007F', '#EF4444'] : ['#4361EE', '#00E5A0']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.actionBtnGradient, (!isRecording && !recordingUri) && { opacity: 0.5 }]}
+            >
+              <Ionicons name="shield-checkmark" size={18} color="#fff" />
+              <Text style={styles.actionBtnTextWhite}>
+                {isRecording ? 'Stop & Analyze' : 'Analyze Now'}
+              </Text>
+            </LinearGradient>
           </TouchableOpacity>
         </View>
 
-        {/* Transcript card — shows real Whisper output after analysis */}
+        {/* Console-style Transcript Box */}
         <View style={[styles.transcriptCard, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
-          <Text style={[styles.transcriptTitle, { color: colors.textSecondary, fontFamily: Typography.monoBold }]}>
-            WHISPER TRANSCRIPT
-          </Text>
-          <Text style={[styles.transcriptText, { color: transcript ? colors.text : colors.textMuted, fontFamily: Typography.body }]}>
+          <View style={styles.transcriptHeader}>
+            <View style={[styles.liveDot, { backgroundColor: isRecording ? '#FF007F' : '#10B981' }]} />
+            <Text style={[styles.transcriptTitle, { color: colors.textSecondary }]}>
+              TRANSCRIPTION TERMINAL
+            </Text>
+          </View>
+          <Text style={[styles.transcriptText, { color: transcript ? colors.text : colors.textMuted }]}>
             {loading
-              ? 'Whisper ML model is transcribing your audio...'
+              ? 'Whisper AI is transcribing and running scam diagnostics...'
               : transcript
               ? `"${transcript}"`
               : isRecording
-              ? 'Recording in progress — transcript will appear after analysis.'
+              ? 'Microphone active. Waiting for transcription analysis...'
               : recordingUri
-              ? 'Audio ready. Tap Analyze to run Whisper transcription.'
-              : 'Record or upload audio, then tap Analyze to see the transcript here.'}
+              ? 'Audio payload loaded. Press "Analyze Now" to begin.'
+              : 'Waiting for recording or file upload...'}
           </Text>
           {analysisVerdict && transcript ? (
-            <View style={[styles.scamAlert, { backgroundColor: Colors.verdictBg[analysisVerdict] || Colors.verdictBg.SAFE }]}>
+            <View style={[styles.scamAlert, {
+              backgroundColor: isDark
+                ? Colors.verdictBgDark[analysisVerdict] || '#1E2230'
+                : Colors.verdictBg[analysisVerdict] || '#F0F2F8',
+              borderColor: Colors.verdict[analysisVerdict] || colors.border
+            }]}>
               <Ionicons
                 name={analysisVerdict === 'SAFE' ? 'checkmark-circle' : 'warning'}
-                size={14}
+                size={16}
                 color={Colors.verdict[analysisVerdict] || Colors.verdict.SAFE}
               />
-              <Text style={[styles.scamAlertText, { color: Colors.verdict[analysisVerdict] || Colors.verdict.SAFE, fontFamily: Typography.monoBold }]}>
-                {analysisVerdict === 'SAFE' ? 'No scam detected' : `${analysisVerdict.toLowerCase()} — see full results`}
+              <Text style={[styles.scamAlertText, { color: Colors.verdict[analysisVerdict] || Colors.verdict.SAFE }]}>
+                {analysisVerdict === 'SAFE' ? 'Analysis Complete: Legitimate Call' : `Scam Diagnostic Alert: ${analysisVerdict}`}
               </Text>
             </View>
           ) : null}
         </View>
 
-        {/* Info */}
+        {/* How It Works Card */}
         <View style={[styles.infoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={[styles.infoTitle, { color: colors.textSecondary, fontFamily: Typography.monoBold }]}>HOW IT WORKS</Text>
+          <Text style={[styles.infoTitle, { color: colors.textSecondary }]}>SECURE VOICE ENGINE DICTIONARY</Text>
           {[
-            'Audio transcribed via Whisper ML model (open-source, runs locally)',
-            'Text analyzed for fake authority, money demands, threats',
-            'Suspicious phrases highlighted in the full results screen',
+            'Audio is securely transcribed via Whisper AI model.',
+            'Decoded dialogue is scanned for phishing, emergency pressure, or banking requests.',
+            'Flagged scam phrases are highlighted in real-time on your dashboard.',
           ].map((t, i) => (
             <View key={i} style={styles.infoRow}>
-              <Text style={[styles.infoNum, { color: Colors.light.primary, fontFamily: Typography.monoBold }]}>{i + 1}.</Text>
-              <Text style={[styles.infoText, { color: colors.textSecondary, fontFamily: Typography.body }]}>{t}</Text>
+              <LinearGradient
+                colors={['#4361EE', '#00E5A0']}
+                style={styles.infoBadge}
+              >
+                <Text style={styles.infoBadgeText}>{i + 1}</Text>
+              </LinearGradient>
+              <Text style={[styles.infoText, { color: colors.textSecondary }]}>{t}</Text>
             </View>
           ))}
         </View>
@@ -342,26 +399,167 @@ export default function VoiceScanScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scroll: { padding: Spacing.md, gap: Spacing.md },
-  recordSection: { alignItems: 'center', paddingVertical: Spacing.lg, gap: Spacing.md },
-  pulseOuter: { width: 120, height: 120, borderRadius: 60, alignItems: 'center', justifyContent: 'center' },
-  recordBtn: { width: 96, height: 96, borderRadius: 48, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
-  timer: { fontSize: 16, letterSpacing: 0.5 },
-  waveform: { flexDirection: 'row', alignItems: 'center', gap: 4, height: 48 },
-  waveBar: { width: 4, borderRadius: 2, backgroundColor: Colors.light.primary },
-  actionRow: { flexDirection: 'row', gap: Spacing.sm },
-  actionBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, borderRadius: Radius.md, borderWidth: 1, paddingVertical: 12,
+  recordSection: {
+    borderRadius: 20,
+    borderWidth: 1,
+    paddingVertical: 28,
+    alignItems: 'center',
+    gap: 16,
   },
-  actionBtnText: { fontSize: 13 },
-  transcriptCard: { borderRadius: Radius.lg, borderWidth: 1, padding: Spacing.md, gap: Spacing.sm },
-  transcriptTitle: { fontSize: 11, letterSpacing: 1.2 },
-  transcriptText: { fontSize: 14, lineHeight: 22, fontStyle: 'italic' },
-  scamAlert: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8, borderRadius: Radius.sm },
-  scamAlertText: { fontSize: 12 },
-  infoCard: { borderRadius: Radius.lg, borderWidth: 1, padding: Spacing.md, gap: Spacing.sm },
-  infoTitle: { fontSize: 11, letterSpacing: 1.2, marginBottom: 4 },
-  infoRow: { flexDirection: 'row', gap: 8 },
-  infoNum: { fontSize: 13, width: 16 },
-  infoText: { fontSize: 13, flex: 1, lineHeight: 18 },
+  pulseOuter: {
+    width: 130,
+    height: 130,
+    borderRadius: 65,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recordBtnWrap: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    overflow: 'hidden',
+  },
+  recordBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timer: {
+    fontSize: 15,
+    letterSpacing: 0.5,
+  },
+  waveform: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 50,
+    marginTop: 8,
+  },
+  waveBar: {
+    width: 4,
+    borderRadius: 2,
+  },
+  waveformPlaceholder: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 50,
+    marginTop: 8,
+    opacity: 0.3,
+  },
+  placeholderBar: {
+    width: 4,
+    height: 8,
+    borderRadius: 2,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingVertical: 14,
+  },
+  actionBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  analyzeBtnWrap: {
+    flex: 1,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  actionBtnGradient: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+  },
+  actionBtnTextWhite: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  transcriptCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: Spacing.sm,
+  },
+  transcriptHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  liveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  transcriptTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+  },
+  transcriptText: {
+    fontSize: 14,
+    lineHeight: 22,
+    fontStyle: 'italic',
+  },
+  scamAlert: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 6,
+  },
+  scamAlertText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  infoCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: Spacing.md,
+    gap: 12,
+  },
+  infoTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  infoBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  infoText: {
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
 });

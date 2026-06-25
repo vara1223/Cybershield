@@ -1,0 +1,11 @@
+# Ignore local native directories so EAS generates them cleanly on the server
+android/
+ios/
+
+# Ignore dependency and build cache folders
+node_modules/
+.expo/
+.eas/
+dist/
+build/
+*.log
