@@ -14,9 +14,14 @@ import Constants from 'expo-constants';
 const BACKEND_PORT = 8000;
 const FALLBACK_URL = 'http://10.190.47.216:8000'; // only used by standalone APK builds
 
+const LIVE_BACKEND_URL =
+  process.env.EXPO_PUBLIC_BACKEND_URL ||
+  Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL ||
+  '';
+
 function resolveBaseUrl() {
   if (Platform.OS === 'web') {
-    return `http://localhost:${BACKEND_PORT}`;
+    return LIVE_BACKEND_URL || `http://localhost:${BACKEND_PORT}`;
   }
   // Metro dev-server host, e.g. "192.168.1.50:8081"
   const hostUri =
@@ -27,12 +32,18 @@ function resolveBaseUrl() {
     '';
   const host = hostUri.split(':')[0];
   if (host && host !== 'localhost' && host !== '127.0.0.1') {
+    if (process.env.EXPO_PUBLIC_FORCE_LIVE === 'true' && LIVE_BACKEND_URL) {
+      return LIVE_BACKEND_URL;
+    }
     return `http://${host}:${BACKEND_PORT}`;
   }
   if (__DEV__) {
+    if (process.env.EXPO_PUBLIC_FORCE_LIVE === 'true' && LIVE_BACKEND_URL) {
+      return LIVE_BACKEND_URL;
+    }
     return `http://localhost:${BACKEND_PORT}`;
   }
-  return FALLBACK_URL;
+  return LIVE_BACKEND_URL || FALLBACK_URL;
 }
 
 export const BASE_URL = resolveBaseUrl();

@@ -148,7 +148,11 @@ export default function AppNavigator() {
   }
 
   return (
+<<<<<<< HEAD
     <NavigationContainer ref={navigationRef} theme={navTheme} linking={linking}>
+=======
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
+>>>>>>> d2cb81c (feat: prepare backend for Render.com live server deployment and configure dynamic API client URLs)
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <>

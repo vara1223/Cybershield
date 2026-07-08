@@ -43,7 +43,9 @@ python -m venv venv
 venv\Scripts\activate            # Windows  (macOS/Linux: source venv/bin/activate)
 pip install -r requirements.txt
 
-# .env already contains OPENAI_API_KEY — nothing to configure.
+# If you run on Windows and uvicorn.exe is blocked by Application Control policies, use:
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
+# Otherwise:
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 

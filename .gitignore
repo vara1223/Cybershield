@@ -24,6 +24,9 @@ frontend/.expo/
 web-build/
 frontend/dist/
 frontend/selenium-tests/node_modules/
+android/
+frontend/android/
+
 
 # Editor files
 .idea/
@@ -35,3 +38,12 @@ frontend/selenium-tests/node_modules/
 
 # Log files
 *.log
+
+# EAS Build logs
+frontend/eas_build_log*
+frontend/bundle-response.txt
+frontend/expo_web.log
+
+# Scratch test files
+backend/scratch_test_qr.py
+
