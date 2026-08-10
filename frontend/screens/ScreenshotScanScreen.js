@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useScanStore from '../store/useScanStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import ScanLineLoader from '../components/ScanLineLoader';
+import BackButton from '../components/BackButton';
 import api from '../services/api';
 
 const ACCENT = '#F59E0B';
@@ -124,18 +125,13 @@ export default function ScreenshotScanScreen({ navigation }) {
       {loading && <ScanLineLoader isDark={isDark} label="Running OCR scan..." />}
 
       {/* Hero Header */}
-      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#251800' : '#FFFBEB' }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.backBtn, { backgroundColor: isDark ? '#1E2230' : '#fff', borderColor: colors.border }]}
-        >
-          <Ionicons name="arrow-back" size={18} color={colors.text} />
-        </TouchableOpacity>
-        <View style={[styles.heroBadgeIcon, { backgroundColor: ACCENT + '20' }]}>
-          <Ionicons name="image" size={28} color={ACCENT} />
+      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#070B14' : '#FFFBEB' }]}>
+        <BackButton navigation={navigation} top={insets.top + 12} left={16} />
+        <View style={[styles.heroBadgeIcon, { backgroundColor: isDark ? '#FFB02015' : '#FFB02012', borderWidth: 1, borderColor: isDark ? '#FFB02025' : '#FFB02030' }]}>
+          <Ionicons name="image" size={28} color="#FFB020" />
         </View>
-        <Text style={[styles.heroTitle, { color: isDark ? '#fff' : '#1A1D2E' }]}>Screenshot Scanner</Text>
-        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>Upload a screenshot to detect scams via OCR</Text>
+        <Text style={[styles.heroTitle, { color: colors.text }]}>SCREENSHOT SCANNER</Text>
+        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>OCR-powered threat detection in images</Text>
       </View>
 
       <ScrollView

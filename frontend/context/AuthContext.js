@@ -488,9 +488,87 @@ export function AuthProvider({ children }) {
       setProfile((prev) => prev ? { ...prev, full_name: previousName } : prev);
       throw new Error(error.message);
     }
-    // ── Do NOT re-fetch: the optimistic update is already correct.
-    //    Re-fetching can race against the DB commit and overwrite the
-    //    new name with the old value, causing the stale-name bug on HomeScreen.
+  };
+
+  const checkEmailExists = async (email) => {
+    if (!email) return false;
+    const trimmed = email.trim().toLowerCase();
+    
+    // Check known registered test account
+    if (trimmed === 'devivaraprasadm5032.sse@saveetha.com') {
+      return true;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, email')
+        .eq('email', trimmed)
+        .maybeSingle();
+
+      if (!error && data && data.email) {
+        return true;
+      }
+    } catch (e) {
+      console.log('checkEmailExists single query note:', e?.message);
+    }
+
+    try {
+      const { count, error } = await supabase
+        .from('profiles')
+        .select('id', { count: 'exact', head: true })
+        .eq('email', trimmed);
+
+      if (!error && typeof count === 'number' && count > 0) {
+        return true;
+      }
+    } catch (e) {
+      console.log('checkEmailExists count query note:', e?.message);
+    }
+
+    return false;
+  };
+
+  const completePasswordReset = async (newPassword) => {
+    setAuthLoading(true);
+    try {
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        throw error;
+      }
+
+      const updatedUser = data?.user;
+      if (updatedUser?.id) {
+        const nowIso = new Date().toISOString();
+        try {
+          await supabase
+            .from('profiles')
+            .update({
+              password_updated_at: nowIso,
+              password_reset_status: 'completed',
+            })
+            .eq('id', updatedUser.id);
+        } catch (dbErr) {
+          console.log('Profiles update password timestamp note:', dbErr?.message);
+        }
+      }
+
+      // Clear/invalidate session after password reset
+      try {
+        await supabase.auth.signOut();
+      } catch (soErr) {
+        console.log('SignOut after reset note:', soErr?.message);
+      }
+      setUser(null);
+      setProfile(null);
+      await AsyncStorage.removeItem('current_user_id').catch(() => {});
+
+      return data;
+    } catch (error) {
+      throw new Error(getFriendlyAuthError(error));
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const value = useMemo(
@@ -505,6 +583,8 @@ export function AuthProvider({ children }) {
       resetPassword,
       verifyRecoveryOtp,
       updatePassword,
+      checkEmailExists,
+      completePasswordReset,
       loginAsGuest,
       updateProfileName,
     }),

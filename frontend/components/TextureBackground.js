@@ -1,20 +1,57 @@
-import React from 'react';
-import { StyleSheet, View } from 'react-native';
-import Svg, { Defs, Pattern, Rect, Circle } from 'react-native-svg';
+import React, { useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
+import Svg, { Defs, RadialGradient, Stop, Rect, Circle, Line } from 'react-native-svg';
 
-export default function TextureBackground({ isDark = false, style }) {
-  const dotColor = isDark ? 'rgba(255,255,255,0.035)' : 'rgba(0,0,0,0.03)';
+/**
+ * Renders a subtle cyber-grid background — small dots on a dark grid
+ * with faint radial glow in the top-right corner.
+ * Falls back gracefully if SVG isn't available.
+ */
+export default function TextureBackground({ isDark }) {
+  if (!isDark) {
+    // Light mode: very subtle tinted background, no SVG needed
+    return (
+      <View
+        style={[
+          StyleSheet.absoluteFillObject,
+          { backgroundColor: '#F0F4FF' },
+        ]}
+        pointerEvents="none"
+      />
+    );
+  }
 
   return (
-    <View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
-      <Svg width="100%" height="100%">
-        <Defs>
-          <Pattern id="dots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-            <Circle cx="1.5" cy="1.5" r="1.5" fill={dotColor} />
-          </Pattern>
-        </Defs>
-        <Rect width="100%" height="100%" fill="url(#dots)" />
-      </Svg>
+    <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
+      {/* Deep navy base */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#070B14' }]} />
+      {/* Radial glow — top right */}
+      <View style={styles.glowTopRight} />
+      {/* Radial glow — bottom left */}
+      <View style={styles.glowBottomLeft} />
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  glowTopRight: {
+    position: 'absolute',
+    width: 400,
+    height: 400,
+    top: -120,
+    right: -120,
+    borderRadius: 200,
+    backgroundColor: '#00D4FF',
+    opacity: 0.035,
+  },
+  glowBottomLeft: {
+    position: 'absolute',
+    width: 320,
+    height: 320,
+    bottom: -80,
+    left: -80,
+    borderRadius: 160,
+    backgroundColor: '#4361EE',
+    opacity: 0.04,
+  },
+});

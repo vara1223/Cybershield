@@ -52,8 +52,8 @@ export default function VoiceScanScreen({ navigation }) {
 
   function startPulse() {
     Animated.loop(Animated.sequence([
-      Animated.timing(pulseAnim, { toValue: 1.12, duration: 600, useNativeDriver: true }),
-      Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(pulseAnim, { toValue: 1.12, duration: 600, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(pulseAnim, { toValue: 1, duration: 600, useNativeDriver: Platform.OS !== 'web' }),
     ])).start();
     waveAnims.forEach((anim, i) => {
       Animated.loop(Animated.sequence([
@@ -66,7 +66,7 @@ export default function VoiceScanScreen({ navigation }) {
   function stopPulse() {
     pulseAnim.stopAnimation();
     waveAnims.forEach((a) => a.stopAnimation());
-    Animated.timing(pulseAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    Animated.timing(pulseAnim, { toValue: 1, duration: 200, useNativeDriver: Platform.OS !== 'web' }).start();
   }
 
   // Web recording via MediaRecorder

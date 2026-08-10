@@ -5,7 +5,9 @@ CREATE TABLE profiles (
     full_name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     avatar_url TEXT,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    password_updated_at TIMESTAMPTZ,
+    password_reset_status TEXT
 );
 
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;

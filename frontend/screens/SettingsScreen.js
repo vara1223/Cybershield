@@ -22,12 +22,13 @@ import useScanStore from '../store/useScanStore';
 import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { requestNotificationPermission } from '../utils/notifications';
+import BackButton from '../components/BackButton';
 
 // ─── Reusable menu row ────────────────────────────────────────────────────────
 function MenuRow({ iconName, iconColor, iconBg, label, sub, right, onPress, showBorder, colors }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const onIn  = () => onPress && Animated.spring(scale, { toValue: 0.98, useNativeDriver: true, speed: 40 }).start();
-  const onOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 40 }).start();
+  const onIn  = () => onPress && Animated.spring(scale, { toValue: 0.98, useNativeDriver: Platform.OS !== 'web', speed: 40 }).start();
+  const onOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', speed: 40 }).start();
 
   const inner = (
     <Animated.View
@@ -206,9 +207,9 @@ export default function SettingsScreen() {
       await updateProfileName(trimmed);
       setSaveStatus('saved');
       Animated.sequence([
-        Animated.timing(savedAnim, { toValue: 1, duration: 250, useNativeDriver: true, easing: Easing.out(Easing.back(1.2)) }),
+        Animated.timing(savedAnim, { toValue: 1, duration: 250, useNativeDriver: Platform.OS !== 'web', easing: Easing.out(Easing.back(1.2)) }),
         Animated.delay(1500),
-        Animated.timing(savedAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+        Animated.timing(savedAnim, { toValue: 0, duration: 220, useNativeDriver: Platform.OS !== 'web' }),
       ]).start(() => {
         setSaveStatus('idle');
         setEditing(false);
@@ -279,13 +280,7 @@ export default function SettingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
       {/* ── Header / Top Nav ────────────────────────────────────── */}
       <View style={[styles.topNav, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton navigation={navigation} absolute={false} />
         <Text style={[styles.pageTitle, { color: colors.text }]}>Settings</Text>
       </View>
 

@@ -8,9 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useScanStore from '../store/useScanStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import ScanLineLoader from '../components/ScanLineLoader';
+import BackButton from '../components/BackButton';
 import api from '../services/api';
 
-const ACCENT = '#EF4444';
+const ACCENT = '#FF4D4F';
+const ACCENT2 = '#CC2222';
 const EXAMPLES = [
   'Your SBI OTP is 847291. Share it with our representative to unlock your frozen account immediately.',
   'Dear customer, your HDFC account has been suspended. Call 09876543210 to reactivate within 2 hours.',
@@ -55,18 +57,13 @@ export default function OTPScanScreen({ navigation }) {
       {loading && <ScanLineLoader isDark={isDark} label="Analyzing message..." />}
 
       {/* Hero Header */}
-      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#2A0E0E' : '#FEF2F2' }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.backBtn, { backgroundColor: isDark ? '#1E2230' : '#fff', borderColor: colors.border }]}
-        >
-          <Ionicons name="arrow-back" size={18} color={colors.text} />
-        </TouchableOpacity>
-        <View style={[styles.heroBadgeIcon, { backgroundColor: ACCENT + '20' }]}>
-          <Ionicons name="shield-checkmark" size={28} color={ACCENT} />
+      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#070B14' : '#FFF1F2' }]}>
+        <BackButton navigation={navigation} top={insets.top + 12} left={16} />
+        <View style={[styles.heroBadgeIcon, { backgroundColor: isDark ? '#FF4D4F15' : '#FF4D4F12', borderWidth: 1, borderColor: isDark ? '#FF4D4F25' : '#FF4D4F30' }]}>
+          <Ionicons name="shield-checkmark" size={28} color="#FF4D4F" />
         </View>
-        <Text style={[styles.heroTitle, { color: isDark ? '#fff' : '#1A1D2E' }]}>OTP Scam Detector</Text>
-        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>Paste suspicious SMS or WhatsApp message</Text>
+        <Text style={[styles.heroTitle, { color: colors.text }]}>OTP SCAM DETECTOR</Text>
+        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>Paste suspicious SMS or message</Text>
 
         {/* Warning banner */}
         <View style={[styles.warningBanner, { backgroundColor: ACCENT + '15', borderColor: ACCENT + '40' }]}>

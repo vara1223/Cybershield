@@ -6,7 +6,7 @@ import useScanStore from '../store/useScanStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import ConfidenceArc from '../components/ConfidenceArc';
 import VerdictBadge from '../components/VerdictBadge';
-import Header from '../components/Header';
+import BackButton from '../components/BackButton';
 import TextureBackground from '../components/TextureBackground';
 import { FEATURE_LABELS } from '../services/mockData';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -71,13 +71,7 @@ export default function ResultScreen({ navigation }) {
       <TextureBackground isDark={isDark} />
       {/* Custom Header */}
       <View style={[styles.headerContainer, { paddingTop: insets.top + 4, borderBottomColor: colors.border }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.backBtn, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={22} color={colors.text} />
-        </TouchableOpacity>
+        <BackButton navigation={navigation} absolute={false} />
         <View style={styles.headerTitleWrap}>
           <Text style={[styles.headerTitle, { color: verdictColor, fontFamily: Typography.bodyBold }]}>
             Scan Result

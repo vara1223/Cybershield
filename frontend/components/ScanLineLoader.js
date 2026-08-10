@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, Animated, Platform } from 'react-native';
 import { Colors, Typography } from '../constants/theme';
 
 const { width, height } = Dimensions.get('window');
@@ -9,18 +9,18 @@ export default function ScanLineLoader({ isDark = false, label = 'Scanning...' }
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: Platform.OS !== 'web' }).start();
     Animated.loop(
       Animated.sequence([
         Animated.timing(scanY, {
           toValue: height,
           duration: 1600,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(scanY, {
           toValue: -4,
           duration: 0,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ])
     ).start();

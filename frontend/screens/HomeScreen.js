@@ -1,198 +1,221 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Animated,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, Animated, Dimensions, Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import useScanStore from '../store/useScanStore';
 import { useAuth } from '../context/AuthContext';
-import { Colors, Spacing, Radius, Shadow } from '../constants/theme';
+import { Colors, Shadow } from '../constants/theme';
 import RecentScanRow from '../components/RecentScanRow';
 import TextureBackground from '../components/TextureBackground';
-import { LinearGradient } from 'expo-linear-gradient';
 
-// ─── Tool definitions ────────────────────────────────────────────────────────
+const { width: SW } = Dimensions.get('window');
+
+// ─── Scan tool definitions ────────────────────────────────────────────────────
 const SCAN_TOOLS = [
-  { key: 'URL',        icon: 'link-outline',         label: 'URL Scan',    desc: 'Detect malicious links',   screen: 'URLScan',        color: '#4361EE' },
-  { key: 'Screenshot', icon: 'image-outline',        label: 'Screenshot',  desc: 'Scan image for threats',   screen: 'ScreenshotScan', color: '#0EA5E9' },
-  { key: 'QR',         icon: 'qr-code-outline',      label: 'QR Code',     desc: 'Verify QR destinations',   screen: 'QRScan',         color: '#10B981' },
-  { key: 'OTP',        icon: 'chatbubble-outline',   label: 'OTP Scam',    desc: 'Detect OTP phishing',      screen: 'OTPScan',        color: '#F59E0B' },
-  { key: 'UPI',        icon: 'card-outline',         label: 'UPI Fraud',   desc: 'Validate UPI handles',     screen: 'UPIScan',        color: '#8B5CF6' },
-  { key: 'Voice',      icon: 'mic-outline',          label: 'Voice Scan',  desc: 'Analyse audio for scam',   screen: 'VoiceScan',      color: '#EF4444' },
+  { key: 'URL',        icon: 'link',                  label: 'URL Scan',    desc: 'Phishing & malware links', screen: 'URLScan',        color: '#2563EB', grad: ['#3B82F6', '#1D4ED8'] },
+  { key: 'Screenshot', icon: 'image',                 label: 'Screenshot',  desc: 'OCR threat detection',     screen: 'ScreenshotScan', color: '#FFB020', grad: ['#FFB020', '#CC8800'] },
+  { key: 'QR',         icon: 'qr-code',               label: 'QR Code',     desc: 'Verify QR destinations',   screen: 'QRScan',         color: '#00C48C', grad: ['#00C48C', '#008866'] },
+  { key: 'OTP',        icon: 'chatbubble-ellipses',   label: 'OTP Scam',    desc: 'SMS phishing detection',   screen: 'OTPScan',        color: '#FF4D4F', grad: ['#FF4D4F', '#CC2222'] },
+  { key: 'UPI',        icon: 'card',                  label: 'UPI Fraud',   desc: 'Payment handle analysis',  screen: 'UPIScan',        color: '#8B5CF6', grad: ['#8B5CF6', '#6D28D9'] },
+  { key: 'Voice',      icon: 'mic',                   label: 'Voice Scan',  desc: 'Audio scam analysis',      screen: 'VoiceScan',      color: '#60A5FA', grad: ['#60A5FA', '#2563EB'] },
 ];
 
-// ─── Pressable tool card ─────────────────────────────────────────────────────
+// ─── Pulsing status indicator ─────────────────────────────────────────────────
+function PulsingDot({ color = '#00C48C' }) {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.7, duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+        Animated.timing(pulse, { toValue: 1,   duration: 900, useNativeDriver: Platform.OS !== 'web' }),
+      ])
+    ).start();
+  }, []);
+  return (
+    <View style={{ width: 10, height: 10, alignItems: 'center', justifyContent: 'center' }}>
+      <Animated.View style={{
+        position: 'absolute', width: 10, height: 10, borderRadius: 5,
+        backgroundColor: color, opacity: 0.3, transform: [{ scale: pulse }],
+      }} />
+      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: color }} />
+    </View>
+  );
+}
+
+// ─── Stat card ────────────────────────────────────────────────────────────────
+function StatCard({ icon, value, label, color, isDark }) {
+  const colors = isDark ? Colors.dark : Colors.light;
+  return (
+    <View style={[
+      styles.statCard,
+      {
+        backgroundColor: isDark ? colors.card : '#fff',
+        borderColor: color + '30',
+        flex: 1,
+      },
+    ]}>
+      <View style={[styles.statIconBox, { backgroundColor: color + '18' }]}>
+        <Ionicons name={icon} size={16} color={color} />
+      </View>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textMuted }]}>{label}</Text>
+    </View>
+  );
+}
+
+// ─── Tool card ────────────────────────────────────────────────────────────────
 function ToolCard({ tool, onPress, isDark, colors }) {
   const scale = useRef(new Animated.Value(1)).current;
-  const onIn  = () => Animated.spring(scale, { toValue: 0.96, useNativeDriver: true, speed: 40 }).start();
-  const onOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true, speed: 40 }).start();
-
-  const iconBg   = tool.color + (isDark ? '28' : '18');
-  const cardBg   = isDark ? colors.card : '#FFFFFF';
-  const cardTint = tool.color + (isDark ? '10' : '08');  // very subtle color wash
-  const borderC  = tool.color + (isDark ? '35' : '25');  // soft colored border
+  const onIn  = () => Animated.spring(scale, { toValue: 0.94, useNativeDriver: Platform.OS !== 'web', speed: 50 }).start();
+  const onOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: Platform.OS !== 'web', speed: 50 }).start();
 
   return (
-    <Animated.View style={[{ transform: [{ scale }] }, styles.toolCell]}>
+    <Animated.View style={[styles.toolCell, { transform: [{ scale }] }]}>
       <TouchableOpacity
-        onPress={onPress}
-        onPressIn={onIn}
-        onPressOut={onOut}
+        onPress={onPress} onPressIn={onIn} onPressOut={onOut}
         activeOpacity={1}
-        style={[styles.toolCard, { backgroundColor: isDark ? cardBg : cardTint, borderColor: borderC }]}
+        style={[
+          styles.toolCard,
+          {
+            backgroundColor: isDark ? colors.card : '#fff',
+            borderColor: tool.color + '25',
+          },
+        ]}
       >
-        <View style={[styles.toolIconBox, { backgroundColor: iconBg }]}>
-          <Ionicons name={tool.icon} size={20} color={tool.color} />
-        </View>
-        <Text style={[styles.toolLabel, { color: colors.text }]} numberOfLines={1}>
-          {tool.label}
-        </Text>
-        <Text style={[styles.toolDesc, { color: colors.textSecondary }]} numberOfLines={2}>
+        {/* Glow accent top-left */}
+        <View style={[styles.toolGlow, { backgroundColor: tool.color }]} />
+
+        <LinearGradient
+          colors={tool.grad}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.toolIcon}
+        >
+          <Ionicons name={tool.icon} size={20} color="#fff" />
+        </LinearGradient>
+
+        <Text style={[styles.toolLabel, { color: colors.text }]}>{tool.label}</Text>
+        <Text style={[styles.toolDesc,  { color: colors.textMuted }]} numberOfLines={2}>
           {tool.desc}
         </Text>
+
+        <View style={[styles.toolAction, { backgroundColor: tool.color + '15' }]}>
+          <Ionicons name="arrow-forward" size={12} color={tool.color} />
+        </View>
       </TouchableOpacity>
     </Animated.View>
   );
 }
 
-// ─── Main screen ─────────────────────────────────────────────────────────────
+// ─── Main Screen ──────────────────────────────────────────────────────────────
 export default function HomeScreen({ navigation }) {
-  const insets         = useSafeAreaInsets();
-  const isDark         = useScanStore((s) => s.isDark);
-  const history        = useScanStore((s) => s.history);
-  const getTotalScans  = useScanStore((s) => s.getTotalScans);
-  const getThreats     = useScanStore((s) => s.getThreats);
-  const getSafeRate    = useScanStore((s) => s.getSafeRate);
-  const { profile } = useAuth();
+  const insets        = useSafeAreaInsets();
+  const isDark        = useScanStore((s) => s.isDark);
+  const history       = useScanStore((s) => s.history);
+  const getTotalScans = useScanStore((s) => s.getTotalScans);
+  const getThreats    = useScanStore((s) => s.getThreats);
+  const getSafeRate   = useScanStore((s) => s.getSafeRate);
+  const { profile }   = useAuth();
 
   const colors      = isDark ? Colors.dark : Colors.light;
   const recentScans = history.slice(0, 4);
+  const threats     = getThreats();
+  const firstName   = (profile?.full_name || 'Operator').split(' ')[0];
 
-  const now     = new Date();
-  const hour    = now.getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-
-  // ─── Stat rows ──────────────────────────────────────────────────────────────
-  const STATS = [
-    { label: 'Total Scans',  value: getTotalScans(), icon: 'shield-checkmark-outline', color: '#4361EE' },
-    { label: 'Threats Found', value: getThreats(),    icon: 'warning-outline',          color: '#EF4444' },
-    { label: 'Safe Rate',    value: `${getSafeRate()}%`, icon: 'checkmark-circle-outline', color: '#10B981' },
-  ];
+  const hour     = new Date().getHours();
+  const greeting = hour < 12 ? 'MORNING' : hour < 17 ? 'AFTERNOON' : 'EVENING';
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
-      <StatusBar style={isDark ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <TextureBackground isDark={isDark} />
 
-      {/* ── Header ─────────────────────────────────────────────── */}
+      {/* ── Dashboard Header ──────────────────────────────────── */}
       <LinearGradient
-        colors={isDark ? ['#1E1B4B', '#2E2A72'] : ['#4361EE', '#8B5CF6']}
+        colors={['#1D4ED8', '#2563EB', '#3B82F6']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + 16,
-            borderBottomWidth: 0,
-            borderBottomLeftRadius: 24,
-            borderBottomRightRadius: 24,
-            shadowColor: '#4361EE',
-            shadowOffset: { width: 0, height: 6 },
-            shadowOpacity: isDark ? 0.4 : 0.2,
-            shadowRadius: 10,
-            elevation: 8,
-          },
-        ]}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
       >
-        <View style={styles.headerLeft}>
-          <Text style={[styles.greeting, { color: 'rgba(255, 255, 255, 0.75)', fontWeight: '600' }]}>
-            {greeting},
-          </Text>
-          <Text style={[styles.userName, { color: '#FFFFFF', fontWeight: '800' }]}>
-            {profile?.full_name || 'User'}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Settings')}
-          style={styles.avatarHeaderBtn}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.avatarHeaderFallback, { backgroundColor: 'rgba(255, 255, 255, 0.25)', borderWidth: 1.5, borderColor: '#FFFFFF' }]}>
-            <Text style={[styles.avatarHeaderInitial, { color: '#FFFFFF' }]}>
-              {(profile?.full_name || 'U')[0].toUpperCase()}
+        {/* Top row */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.headerGreeting}>
+              GOOD {greeting}, OPERATOR
             </Text>
+            <Text style={styles.headerName}>{firstName}</Text>
           </View>
-        </TouchableOpacity>
-      </LinearGradient>
 
-      {/* ── Scroll body ────────────────────────────────────────── */}
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 96 }]}
-      >
-
-        {/* ── Protection status banner ──────────────────────────── */}
-        <View style={[styles.banner, {
-          backgroundColor: isDark ? '#0C1A3A' : '#EEF2FF',
-          borderColor: isDark ? '#1E2E5C' : '#C7D2FE',
-        }]}>
-          <View style={styles.bannerLeft}>
-            <View style={styles.shieldWrap}>
-              <Ionicons name="shield-checkmark" size={26} color="#4361EE" />
-              <View style={styles.activeDot} />
-            </View>
-            <View style={styles.bannerText}>
-              <Text style={[styles.bannerTitle, { color: colors.text }]}>
-                Protection Active
-              </Text>
-              <Text style={[styles.bannerSub, { color: colors.textSecondary }]}>
-                AI scanning engine is running
+          <TouchableOpacity onPress={() => navigation.navigate('Settings')} style={styles.avatarBtn} activeOpacity={0.8}>
+            <View style={styles.avatarGrad}>
+              <Text style={styles.avatarInitial}>
+                {(profile?.full_name || 'O')[0].toUpperCase()}
               </Text>
             </View>
-          </View>
-          <TouchableOpacity
-            onPress={() => navigation.navigate('URLScan')}
-            style={styles.scanBtn}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.scanBtnText}>Scan</Text>
           </TouchableOpacity>
         </View>
 
-        {/* ── Stats ─────────────────────────────────────────────── */}
-        <View style={[styles.statsCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          {STATS.map((s, i) => (
-            <React.Fragment key={s.label}>
-              <View style={styles.statItem}>
-                <View style={[styles.statIconBox, { backgroundColor: s.color + '18' }]}>
-                  <Ionicons name={s.icon} size={16} color={s.color} />
-                </View>
-                <Text style={[styles.statValue, { color: colors.text }]}>{s.value}</Text>
-                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{s.label}</Text>
-              </View>
-              {i < STATS.length - 1 && (
-                <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-              )}
-            </React.Fragment>
-          ))}
+        {/* Status bar */}
+        <View style={styles.statusBar}>
+          <PulsingDot color="#4ADE80" />
+          <Text style={styles.statusLabel}>
+            PROTECTION ACTIVE — AI ENGINE ONLINE
+          </Text>
+          {threats > 0 && (
+            <View style={styles.threatBadge}>
+              <Ionicons name="warning" size={10} color="#FF4D4F" />
+              <Text style={styles.threatBadgeText}>{threats} THREATS</Text>
+            </View>
+          )}
+        </View>
+      </LinearGradient>
+
+      {/* ── Scroll body ───────────────────────────────────────── */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 100 }]}
+      >
+
+        {/* ── Stats row ───────────────────────────────────────── */}
+        <View style={styles.statsRow}>
+          <StatCard icon="shield-checkmark-outline" value={getTotalScans()} label="TOTAL SCANS"  color={isDark ? '#00D4FF' : '#4361EE'} isDark={isDark} />
+          <StatCard icon="warning-outline"          value={threats}         label="THREATS"       color="#FF4D4F" isDark={isDark} />
+          <StatCard icon="checkmark-circle-outline" value={`${getSafeRate()}%`} label="SAFE RATE" color="#00C48C" isDark={isDark} />
         </View>
 
-        {/* ── Scan tools ────────────────────────────────────────── */}
+        {/* ── Quick scan CTA ──────────────────────────────────── */}
+        <TouchableOpacity
+          onPress={() => navigation.navigate('URLScan')}
+          activeOpacity={0.85}
+          style={[styles.ctaBanner, {
+            backgroundColor: isDark ? '#2563EB10' : '#EFF6FF',
+            borderColor: isDark ? '#3B82F630' : '#BFDBFE',
+          }]}
+        >
+          <View style={[styles.ctaIconWrap, { backgroundColor: isDark ? '#3B82F618' : '#DBEAFE' }]}>
+            <Ionicons name="flash" size={20} color={isDark ? '#60A5FA' : '#2563EB'} />
+          </View>
+          <View style={styles.ctaText}>
+            <Text style={[styles.ctaTitle, { color: colors.text }]}>Quick URL Scan</Text>
+            <Text style={[styles.ctaSub, { color: colors.textSecondary }]}>Paste a link and analyze instantly</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={isDark ? '#60A5FA' : '#2563EB'} />
+        </TouchableOpacity>
+
+        {/* ── Security Tools ──────────────────────────────────── */}
         <View style={styles.section}>
           <View style={styles.sectionRow}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Scan Tools</Text>
-            <TouchableOpacity
-              onPress={() => navigation.navigate('History')}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.sectionLink, { color: colors.primary }]}>History</Text>
+            <View style={styles.sectionTitleRow}>
+              <View style={[styles.sectionAccent, { backgroundColor: isDark ? '#00D4FF' : '#4361EE' }]} />
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>SECURITY TOOLS</Text>
+            </View>
+            <TouchableOpacity onPress={() => navigation.navigate('History')} activeOpacity={0.7}>
+              <Text style={[styles.sectionLink, { color: isDark ? '#00D4FF' : '#4361EE' }]}>LOGS →</Text>
             </TouchableOpacity>
           </View>
 
@@ -209,40 +232,46 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* ── Recent scans ──────────────────────────────────────── */}
+        {/* ── Threat log (Recent scans) ────────────────────────── */}
         {recentScans.length > 0 && (
           <View style={styles.section}>
             <View style={styles.sectionRow}>
-              <Text style={[styles.sectionTitle, { color: colors.text }]}>Recent Activity</Text>
+              <View style={styles.sectionTitleRow}>
+                <View style={[styles.sectionAccent, { backgroundColor: '#FF4D4F' }]} />
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>RECENT THREAT LOG</Text>
+              </View>
               <TouchableOpacity onPress={() => navigation.navigate('History')} activeOpacity={0.7}>
-                <Text style={[styles.sectionLink, { color: colors.primary }]}>See all</Text>
+                <Text style={[styles.sectionLink, { color: isDark ? '#00D4FF' : '#4361EE' }]}>ALL →</Text>
               </TouchableOpacity>
             </View>
-            <View style={[styles.recentCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={[styles.logCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
               {recentScans.map((scan, idx) => (
                 <RecentScanRow
-                  key={scan.id}
-                  scan={scan}
-                  isDark={isDark}
+                  key={scan.id} scan={scan} isDark={isDark}
                   showBorder={idx < recentScans.length - 1}
-                  onPress={() => {
-                    useScanStore.getState().setCurrentResult(scan);
-                    navigation.navigate('Result');
-                  }}
+                  onPress={() => { useScanStore.getState().setCurrentResult(scan); navigation.navigate('Result'); }}
                 />
               ))}
             </View>
           </View>
         )}
 
-        {/* ── Empty state ───────────────────────────────────────── */}
+        {/* ── Empty state ──────────────────────────────────────── */}
         {recentScans.length === 0 && (
           <View style={[styles.emptyCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Ionicons name="scan-outline" size={36} color={colors.textMuted} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>No scans yet</Text>
+            <View style={[styles.emptyIcon, { backgroundColor: isDark ? '#00D4FF0A' : '#EEF9FF' }]}>
+              <Ionicons name="scan" size={30} color={isDark ? '#00D4FF' : '#4361EE'} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>No Scan Records</Text>
             <Text style={[styles.emptySub, { color: colors.textSecondary }]}>
-              Pick a tool above to run your first security check.
+              Select a tool above to run your first threat analysis
             </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('URLScan')} activeOpacity={0.85} style={styles.emptyBtn}>
+              <LinearGradient colors={['#00D4FF', '#0099BB']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.emptyBtnGrad}>
+                <Ionicons name="flash" size={16} color="#070B14" />
+                <Text style={styles.emptyBtnText}>INITIATE SCAN</Text>
+              </LinearGradient>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -257,148 +286,106 @@ const styles = StyleSheet.create({
 
   // Header
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    gap: 12,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#1D4ED8',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  headerLeft: { flex: 1, gap: 2 },
-  greeting:   { fontSize: 13, fontWeight: '400' },
-  userName:   { fontSize: 22, fontWeight: '700', letterSpacing: -0.3 },
-  // Avatar in header
-  avatarHeaderBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
+  headerRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLeft:   { gap: 2 },
+  headerGreeting: { fontSize: 11, fontWeight: '700', letterSpacing: 2, color: 'rgba(255,255,255,0.7)' },
+  headerName:   { fontSize: 26, fontWeight: '800', letterSpacing: -0.3, color: '#FFFFFF' },
+  avatarBtn:    { borderRadius: 24 },
+  avatarGrad:   {
+    width: 46, height: 46, borderRadius: 23,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  avatarHeaderFallback: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarHeaderInitial: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
+  avatarInitial: { fontSize: 18, fontWeight: '800', color: '#FFFFFF' },
 
+  // Status bar (inside blue header — white text)
+  statusBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  statusLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.2, color: '#FFFFFF', flex: 1 },
+  threatBadge:   {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#FF4D4F15', borderWidth: 1, borderColor: '#FF4D4F35',
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6,
+  },
+  threatBadgeText: { color: '#FF4D4F', fontSize: 9, fontWeight: '800', letterSpacing: 0.8 },
 
   // Body
-  body: { padding: 16, gap: 16 },
+  body: { paddingTop: 14, paddingHorizontal: 14, gap: 16 },
 
-  // Protection banner
-  banner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+  // Stats
+  statsRow: { flexDirection: 'row', gap: 8 },
+  statCard:  {
+    borderRadius: 12, borderWidth: 1,
+    padding: 12, alignItems: 'center', gap: 6,
   },
-  bannerLeft:  { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
-  shieldWrap:  { position: 'relative' },
-  activeDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-    borderWidth: 1.5,
-    borderColor: '#fff',
-  },
-  bannerText:  { flex: 1, gap: 2 },
-  bannerTitle: { fontSize: 14, fontWeight: '700' },
-  bannerSub:   { fontSize: 12 },
-  scanBtn: {
-    backgroundColor: '#4361EE',
-    paddingHorizontal: 18,
-    paddingVertical: 9,
-    borderRadius: 10,
-  },
-  scanBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  statIconBox: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  statValue:   { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  statLabel:   { fontSize: 9, fontWeight: '700', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' },
 
-  // Stats card
-  statsCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 8,
-    ...Shadow.sm,
+  // CTA banner
+  ctaBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderRadius: 12, borderWidth: 1,
+    paddingHorizontal: 14, paddingVertical: 12,
   },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  statIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
-  statLabel: { fontSize: 10, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.4, textAlign: 'center' },
-  statDivider: { width: StyleSheet.hairlineWidth, height: 44, marginHorizontal: 2 },
+  ctaIconWrap: { width: 40, height: 40, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  ctaText:     { flex: 1, gap: 2 },
+  ctaTitle:    { fontSize: 15, fontWeight: '700' },
+  ctaSub:      { fontSize: 12 },
 
   // Section
-  section:     { gap: 10 },
-  sectionRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontSize: 16, fontWeight: '700' },
-  sectionLink:  { fontSize: 13, fontWeight: '600' },
+  section:       { gap: 10 },
+  sectionRow:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionAccent: { width: 3, height: 14, borderRadius: 2 },
+  sectionTitle:  { fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
+  sectionLink:   { fontSize: 11, fontWeight: '700', letterSpacing: 1 },
 
-  // Tool grid — 2 columns
-  toolsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
+  // Tool grid
+  toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  toolCell:  { width: '48.5%' },
+  toolCard:  {
+    borderRadius: 14, borderWidth: 1, padding: 14, gap: 8,
+    overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15, shadowRadius: 8, elevation: 4,
   },
-  toolCell: { width: '48.5%' },
-  toolCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    gap: 8,
-    ...Shadow.sm,
+  toolGlow:  {
+    position: 'absolute', top: 0, left: 0,
+    width: 60, height: 60, borderRadius: 30,
+    opacity: 0.06, transform: [{ translateX: -20 }, { translateY: -20 }],
   },
-  toolIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  toolIcon:  { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   toolLabel: { fontSize: 14, fontWeight: '700' },
-  toolDesc:  { fontSize: 11, lineHeight: 16 },
+  toolDesc:  { fontSize: 11, lineHeight: 15 },
+  toolAction:{ width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end' },
 
+  // Log card
+  logCard: { borderRadius: 14, borderWidth: 1, paddingHorizontal: 4, ...Shadow.sm },
 
-  // Recent scans
-  recentCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 4,
-    ...Shadow.sm,
-  },
-
-  // Empty state
-  emptyCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 32,
-    alignItems: 'center',
-    gap: 8,
-  },
-  emptyTitle: { fontSize: 16, fontWeight: '700', marginTop: 4 },
-  emptySub:   { fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  // Empty
+  emptyCard:     { borderRadius: 16, borderWidth: 1, padding: 36, alignItems: 'center', gap: 10 },
+  emptyIcon:     { width: 72, height: 72, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  emptyTitle:    { fontSize: 17, fontWeight: '700' },
+  emptySub:      { fontSize: 13, textAlign: 'center', lineHeight: 19, maxWidth: 220 },
+  emptyBtn:      { borderRadius: 10, overflow: 'hidden', marginTop: 6 },
+  emptyBtnGrad:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 24, paddingVertical: 13 },
+  emptyBtnText:  { color: '#070B14', fontSize: 13, fontWeight: '800', letterSpacing: 1.5 },
 });

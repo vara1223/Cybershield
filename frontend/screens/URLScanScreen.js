@@ -4,14 +4,16 @@ import {
   Clipboard, Alert, Animated, ScrollView, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useScanStore from '../store/useScanStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import ScanLineLoader from '../components/ScanLineLoader';
+import BackButton from '../components/BackButton';
 import api from '../services/api';
 
-const ACCENT = '#4361EE';
-const ACCENT2 = '#7C3AED';
+const ACCENT  = '#00D4FF';
+const ACCENT2 = '#0099BB';
 
 export default function URLScanScreen({ navigation }) {
   const isDark = useScanStore((s) => s.isDark);
@@ -47,8 +49,8 @@ export default function URLScanScreen({ navigation }) {
       return;
     }
     Animated.sequence([
-      Animated.timing(btnScale, { toValue: 0.95, duration: 80, useNativeDriver: true }),
-      Animated.timing(btnScale, { toValue: 1, duration: 80, useNativeDriver: true }),
+      Animated.timing(btnScale, { toValue: 0.95, duration: 80, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(btnScale, { toValue: 1, duration: 80, useNativeDriver: Platform.OS !== 'web' }),
     ]).start();
     setLoading(true);
     try {
@@ -85,17 +87,15 @@ export default function URLScanScreen({ navigation }) {
       {loading && <ScanLineLoader isDark={isDark} label="Analyzing URL..." />}
 
       {/* Hero Header */}
-      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#0D1426' : '#EEF2FF' }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: isDark ? '#1E2230' : '#fff', borderColor: colors.border }]}>
-          <Ionicons name="arrow-back" size={18} color={colors.text} />
-        </TouchableOpacity>
+      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#070B14' : '#EEF9FF' }]}>
+        <BackButton navigation={navigation} top={insets.top + 12} left={16} />
         <View style={styles.heroBadge}>
-          <View style={[styles.heroBadgeIcon, { backgroundColor: ACCENT + '20' }]}>
-            <Ionicons name="link" size={28} color={ACCENT} />
+          <View style={[styles.heroBadgeIcon, { backgroundColor: isDark ? '#00D4FF15' : '#00AACC15', borderWidth: 1, borderColor: isDark ? '#00D4FF25' : '#00AACC25' }]}>
+            <Ionicons name="link" size={28} color={isDark ? '#00D4FF' : '#0099BB'} />
           </View>
         </View>
-        <Text style={[styles.heroTitle, { color: isDark ? '#fff' : '#1A1D2E' }]}>URL Scanner</Text>
-        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>Paste any link to detect phishing & malware</Text>
+        <Text style={[styles.heroTitle, { color: colors.text }]}>URL SCANNER</Text>
+        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>Analyze links for phishing & malware</Text>
       </View>
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -142,13 +142,19 @@ export default function URLScanScreen({ navigation }) {
           {/* Analyze button */}
           <Animated.View style={{ transform: [{ scale: btnScale }] }}>
             <TouchableOpacity
-              style={[styles.analyzeBtn, { opacity: url.trim() ? 1 : 0.5 }]}
+              style={{ borderRadius: 12, overflow: 'hidden', opacity: url.trim() ? 1 : 0.5 }}
               onPress={handleAnalyze}
               activeOpacity={0.9}
               disabled={!url.trim() || loading}
             >
-              <Ionicons name="search" size={18} color="#fff" />
-              <Text style={styles.analyzeBtnText}>Analyze URL</Text>
+              <LinearGradient
+                colors={isDark ? ['#00D4FF', '#0099BB'] : ['#4361EE', '#3A56D4']}
+                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                style={styles.analyzeBtn}
+              >
+                <Ionicons name="search" size={18} color={isDark ? '#070B14' : '#fff'} />
+                <Text style={[styles.analyzeBtnText, { color: isDark ? '#070B14' : '#fff' }]}>ANALYZE URL</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </Animated.View>
         </View>
@@ -196,17 +202,6 @@ const styles = StyleSheet.create({
     gap: 6,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
-  },
-  backBtn: {
-    position: 'absolute',
-    left: 16,
-    top: 52,
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
   },
   heroBadge: { marginBottom: 4, marginTop: 8 },
   heroBadgeIcon: {

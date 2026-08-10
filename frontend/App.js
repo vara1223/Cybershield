@@ -1,4 +1,3 @@
-import { registerRootComponent } from 'expo';
 import React from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -48,4 +47,3 @@ function App() {
 }
 
 export default App;
-registerRootComponent(App);

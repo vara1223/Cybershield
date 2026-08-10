@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import useScanStore from '../store/useScanStore';
 import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme';
 import ScanLineLoader from '../components/ScanLineLoader';
+import BackButton from '../components/BackButton';
 import api from '../services/api';
 
 const ACCENT = '#8B5CF6';
@@ -64,18 +65,13 @@ export default function UPIScanScreen({ navigation }) {
       {loading && <ScanLineLoader isDark={isDark} label="Analyzing UPI ID..." />}
 
       {/* Hero Header */}
-      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#17102B' : '#F5F3FF' }]}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={[styles.backBtn, { backgroundColor: isDark ? '#1E2230' : '#fff', borderColor: colors.border }]}
-        >
-          <Ionicons name="arrow-back" size={18} color={colors.text} />
-        </TouchableOpacity>
-        <View style={[styles.heroBadgeIcon, { backgroundColor: ACCENT + '20' }]}>
-          <Ionicons name="card" size={28} color={ACCENT} />
+      <View style={[styles.hero, { paddingTop: insets.top + 8, backgroundColor: isDark ? '#070B14' : '#F5F3FF' }]}>
+        <BackButton navigation={navigation} top={insets.top + 12} left={16} />
+        <View style={[styles.heroBadgeIcon, { backgroundColor: isDark ? '#8B5CF615' : '#8B5CF612', borderWidth: 1, borderColor: isDark ? '#8B5CF625' : '#8B5CF630' }]}>
+          <Ionicons name="card" size={28} color="#8B5CF6" />
         </View>
-        <Text style={[styles.heroTitle, { color: isDark ? '#fff' : '#1A1D2E' }]}>UPI Fraud Detector</Text>
-        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>Enter UPI ID or payment message to verify</Text>
+        <Text style={[styles.heroTitle, { color: colors.text }]}>UPI FRAUD DETECTOR</Text>
+        <Text style={[styles.heroSub, { color: colors.textSecondary }]}>Analyze UPI handles & payment requests</Text>
       </View>
 
       <ScrollView
