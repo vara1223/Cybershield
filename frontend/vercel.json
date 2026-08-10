@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "name": "cybershield-frontend",
+  "buildCommand": "npm install && npx expo export --platform web",
+  "outputDirectory": "dist",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
