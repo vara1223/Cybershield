@@ -66,9 +66,16 @@ app.include_router(screenshot.router, prefix="/analyze")
 app.include_router(qr.router,         prefix="/analyze")
 app.include_router(otp.router,        prefix="/analyze")
 app.include_router(upi.router,        prefix="/analyze")
-app.include_router(voice.router,      prefix="/analyze")
 app.include_router(admin.router,      prefix="/admin")
+
+from fastapi.staticfiles import StaticFiles
 
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": "1.0.0"}
+
+# ── Mount static frontend build if present ──────────────────────────────────────
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "frontend", "dist"))
+if os.path.exists(frontend_dist):
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="static")
+
