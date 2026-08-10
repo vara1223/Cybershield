@@ -7,11 +7,11 @@
     "expected_status": "429",
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2095,
+    "response_time_ms": 2146,
     "test_category": "08_rate_limit",
     "note": "Rate limit enforced: 10 x 429 out of 30 requests",
     "body_snippet": "",
-    "timestamp": "2026-06-16T05:16:34.984270+00:00"
+    "timestamp": "2026-08-10T04:42:22.750731+00:00"
   },
   {
     "endpoint": "/analyze/otp",
@@ -21,11 +21,11 @@
     "expected_status": "429",
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2099,
+    "response_time_ms": 2114,
     "test_category": "08_rate_limit",
     "note": "Rate limit enforced: 10 x 429 out of 30 requests",
     "body_snippet": "",
-    "timestamp": "2026-06-16T05:16:47.598107+00:00"
+    "timestamp": "2026-08-10T04:42:35.474473+00:00"
   },
   {
     "endpoint": "/admin/stats",
@@ -35,11 +35,11 @@
     "expected_status": "429",
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2071,
+    "response_time_ms": 2114,
     "test_category": "08_rate_limit",
     "note": "Rate limit enforced: 10 x 429 out of 30 requests",
     "body_snippet": "",
-    "timestamp": "2026-06-16T05:17:00.039639+00:00"
+    "timestamp": "2026-08-10T04:42:48.212256+00:00"
   },
   {
     "endpoint": "/admin/logs",
@@ -49,11 +49,11 @@
     "expected_status": "429",
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2057,
+    "response_time_ms": 2065,
     "test_category": "08_rate_limit",
     "note": "Rate limit enforced: 10 x 429 out of 30 requests",
     "body_snippet": "",
-    "timestamp": "2026-06-16T05:17:12.403579+00:00"
+    "timestamp": "2026-08-10T04:43:00.689265+00:00"
   },
   {
     "endpoint": "/admin/export/csv",
@@ -63,10 +63,10 @@
     "expected_status": "429",
     "finding": false,
     "severity": "INFO",
-    "response_time_ms": 2098,
+    "response_time_ms": 4853,
     "test_category": "08_rate_limit",
     "note": "Rate limit enforced: 10 x 429 out of 30 requests",
     "body_snippet": "",
-    "timestamp": "2026-06-16T05:17:25.002067+00:00"
+    "timestamp": "2026-08-10T04:43:29.855465+00:00"
   }
 ]

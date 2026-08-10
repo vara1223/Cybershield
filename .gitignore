@@ -47,3 +47,4 @@ frontend/expo_web.log
 # Scratch test files
 backend/scratch_test_qr.py
 
+.vercel
