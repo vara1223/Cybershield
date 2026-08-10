@@ -60,3 +60,8 @@ jobs:
     - name: Run Selenium Test Suite
       run: |
         python backend/automated_test/run_mock_selenium_tests.py
+
+    - name: Run Security Assessment & Load Test Check
+      run: |
+        python backend/automated_test/generate_final_report.py
+
