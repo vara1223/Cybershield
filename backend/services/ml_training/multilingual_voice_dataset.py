@@ -1,0 +1,608 @@
+"""
+CyberShield VoiceScan Module — Multilingual Training Dataset Generator
+========================================================================
+Supports: English (en), Telugu (te), Tamil (ta), Hindi (hi), and Code-Mixed (en+te, en+ta, en+hi, te+en, ta+en, hi+en).
+18 Categories:
+  - OTP_REQUEST
+  - OTP_SHARING
+  - FAKE_BANK_CALL
+  - FAKE_CUSTOMER_SUPPORT
+  - FAKE_KYC
+  - ACCOUNT_THREAT
+  - UPI_FRAUD
+  - PAYMENT_FRAUD
+  - CARD_FRAUD
+  - REFUND_SCAM
+  - FAKE_REWARD_SCAM
+  - REMOTE_ACCESS_REQUEST
+  - SUSPICIOUS_LINK
+  - FAKE_AUTHORITY
+  - URGENCY_PRESSURE
+  - PERSONAL_INFORMATION_REQUEST
+  - LEGITIMATE_SECURITY_WARNING
+  - NORMAL_CALL
+"""
+
+import os
+import json
+
+MULTILINGUAL_VOICE_DATASET = [
+    # ─── 1. OTP_REQUEST ────────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Please tell me the OTP you just received on your phone right now.",
+        "category": "OTP_REQUEST",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["OTP", "tell me the OTP", "just received"],
+        "detected_indicators": ["OTP requested", "Phone request", "Impersonation risk"],
+        "reason": "The caller explicitly asks for a one-time password over an unsolicited call."
+    },
+    {
+        "language": "te",
+        "transcript": "మీకు వచ్చిన OTP నాకు చెప్పండి.",
+        "category": "OTP_REQUEST",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["OTP", "చెప్పండి"],
+        "detected_indicators": ["OTP requested", "Telugu audio demand"],
+        "reason": "Caller demands user to disclose their secret OTP code over the phone."
+    },
+    {
+        "language": "te+en",
+        "transcript": "మీకు వచ్చిన OTP నాకు చెప్పండి, verification complete చేస్తాను.",
+        "category": "OTP_REQUEST",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["OTP", "చెప్పండి", "verification complete"],
+        "detected_indicators": ["OTP requested", "Verification pressure", "Code-mixed Telugu-English"],
+        "reason": "Code-mixed call requesting OTP to complete bogus verification."
+    },
+    {
+        "language": "ta",
+        "transcript": "உங்களுக்கு வந்த OTP-யை எனக்கு சொல்லுங்கள்.",
+        "category": "OTP_REQUEST",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["OTP", "சொல்லுங்கள்"],
+        "detected_indicators": ["OTP requested", "Tamil audio demand"],
+        "reason": "Caller demands OTP disclosure in Tamil."
+    },
+    {
+        "language": "ta+en",
+        "transcript": "உங்களுக்கு வந்த OTP-யை சொல்லுங்கள், verification complete பண்ணுகிறேன்.",
+        "category": "OTP_REQUEST",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["OTP", "சொல்லுங்கள்", "verification complete"],
+        "detected_indicators": ["OTP requested", "Verification pressure", "Code-mixed Tamil-English"],
+        "reason": "Code-mixed Tamil-English call requesting one-time verification password."
+    },
+    {
+        "language": "hi",
+        "transcript": "आपके फोन पर आया OTP मुझे बताइए.",
+        "category": "OTP_REQUEST",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["OTP", "बताइए"],
+        "detected_indicators": ["OTP requested", "Hindi audio demand"],
+        "reason": "Caller requests one-time password in Hindi."
+    },
+    {
+        "language": "hi+en",
+        "transcript": "आपके phone पर आया OTP मुझे बताइए, verification complete करना है.",
+        "category": "OTP_REQUEST",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["OTP", "बताइए", "verification complete"],
+        "detected_indicators": ["OTP requested", "Verification pressure", "Code-mixed Hindi-English"],
+        "reason": "Code-mixed Hindi call coercing user for OTP."
+    },
+
+    # ─── 2. OTP_SHARING ────────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Read the verification code to me so I can cancel this charge.",
+        "category": "OTP_SHARING",
+        "scam_probability": 94.0,
+        "severity": "HIGH",
+        "detected_keywords": ["verification code", "Read the verification code", "cancel charge"],
+        "detected_indicators": ["OTP sharing coerced", "Cancellation trick"],
+        "reason": "Caller asks user to read out verification code under pretense of cancelling a fee."
+    },
+    {
+        "language": "te+en",
+        "transcript": "మీ ఫోన్కి వచ్చిన వెరిఫికేషన్ కోడ్ చెప్పండి, transaction stop చేస్తాం.",
+        "category": "OTP_SHARING",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["వెరిఫికేషన్ కోడ్", "చెప్పండి", "transaction stop"],
+        "detected_indicators": ["OTP sharing coerced", "Fake transaction stop"],
+        "reason": "Urges user to speak verification code to stop a bogus transaction."
+    },
+    {
+        "language": "ta+en",
+        "transcript": "உங்கள் phone-க்கு வந்த verification code-ஐ சொல்லுங்கள், un-authorized charge cancel பண்ணலாம்.",
+        "category": "OTP_SHARING",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["verification code", "சொல்லுங்கள்", "cancel பண்ணலாம்"],
+        "detected_indicators": ["OTP sharing coerced", "Tamil-English code-mixed"],
+        "reason": "Demands verification code to cancel non-existent charge."
+    },
+    {
+        "language": "hi+en",
+        "transcript": "आपके मोबाइल पर आया verification code बताइए, अभी stop करवाता हूँ.",
+        "category": "OTP_SHARING",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["verification code", "बताइए", "stop करवाता हूँ"],
+        "detected_indicators": ["OTP sharing coerced", "Hindi-English code-mixed"],
+        "reason": "Asks for mobile verification code under pretext of stopping fraud."
+    },
+
+    # ─── 3. FAKE_BANK_CALL ──────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "I'm calling from the bank security department regarding a breach.",
+        "category": "FAKE_BANK_CALL",
+        "scam_probability": 88.0,
+        "severity": "HIGH",
+        "detected_keywords": ["bank security department", "calling from the bank"],
+        "detected_indicators": ["Bank impersonation", "Unsolicited security claim"],
+        "reason": "Impersonates bank security representative to establish fake authority."
+    },
+    {
+        "language": "te",
+        "transcript": "నేను బ్యాంక్ సెక్యూరిటీ డిపార్ట్మెంట్ నుంచి కాల్ చేస్తున్నాను.",
+        "category": "FAKE_BANK_CALL",
+        "scam_probability": 89.0,
+        "severity": "HIGH",
+        "detected_keywords": ["బ్యాంక్ సెక్యూరిటీ", "కాల్ చేస్తున్నాను"],
+        "detected_indicators": ["Bank impersonation", "Telugu bank scam"],
+        "reason": "Caller claims to represent bank security in Telugu."
+    },
+    {
+        "language": "te+en",
+        "transcript": "Bank security team నుంచి call చేస్తున్నాను, OTP చెప్పండి.",
+        "category": "FAKE_BANK_CALL",
+        "scam_probability": 97.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Bank security team", "call చేస్తున్నాను", "OTP చెప్పండి"],
+        "detected_indicators": ["Bank impersonation", "OTP requested", "High severity scam"],
+        "reason": "Combines bank authority impersonation with immediate OTP request."
+    },
+    {
+        "language": "ta+en",
+        "transcript": "நான் bank security department-லிருந்து பேசுகிறேன், 6-digit code சொல்லுங்க.",
+        "category": "FAKE_BANK_CALL",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["bank security department", "6-digit code"],
+        "detected_indicators": ["Bank impersonation", "OTP requested", "Tamil code-mixed"],
+        "reason": "Claims to be from bank security department and requests security code."
+    },
+    {
+        "language": "hi+en",
+        "transcript": "मैं bank security team से बोल रहा हूँ, OTP confirm कर दीजिए.",
+        "category": "FAKE_BANK_CALL",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["bank security team", "OTP confirm"],
+        "detected_indicators": ["Bank impersonation", "OTP requested", "Hindi code-mixed"],
+        "reason": "Impersonates bank security and asks for OTP confirmation."
+    },
+
+    # ─── 4. FAKE_CUSTOMER_SUPPORT ───────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "This is Amazon customer support. A laptop order of rupees 75000 was placed on your card.",
+        "category": "FAKE_CUSTOMER_SUPPORT",
+        "scam_probability": 91.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Amazon customer support", "order of rupees", "on your card"],
+        "detected_indicators": ["Customer support impersonation", "Unsolicited order alarm"],
+        "reason": "Fake e-commerce support agent alarming user with non-existent high value order."
+    },
+    {
+        "language": "te+en",
+        "transcript": "మీ PhonePe support నుంచి మాట్లాడ్తున్నాను, refund issue resolve చేయడానికి OTP చెప్పండి.",
+        "category": "FAKE_CUSTOMER_SUPPORT",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["PhonePe support", "refund issue", "OTP చెప్పండి"],
+        "detected_indicators": ["Payment app support impersonation", "OTP requested"],
+        "reason": "Fake payment app support demanding OTP for refund resolution."
+    },
+
+    # ─── 5. FAKE_KYC ────────────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Your KYC has expired. Please verify it immediately to avoid account suspension.",
+        "category": "FAKE_KYC",
+        "scam_probability": 93.0,
+        "severity": "HIGH",
+        "detected_keywords": ["KYC has expired", "verify it immediately", "suspension"],
+        "detected_indicators": ["Fake KYC expiration", "Account suspension threat", "Urgency"],
+        "reason": "Fabricated KYC expiration notice combined with immediate action pressure."
+    },
+    {
+        "language": "te",
+        "transcript": "మీ KYC ఎక్స్పైర్ అయింది.",
+        "category": "FAKE_KYC",
+        "scam_probability": 88.0,
+        "severity": "MEDIUM",
+        "detected_keywords": ["KYC", "ఎక్స్పైర్ అయింది"],
+        "detected_indicators": ["Fake KYC notice", "Telugu language"],
+        "reason": "Telugu prompt asserting expired KYC status."
+    },
+    {
+        "language": "te+en",
+        "transcript": "మీ account block అవ్వకుండా వెంటనే KYC verify చేయండి.",
+        "category": "FAKE_KYC",
+        "scam_probability": 94.0,
+        "severity": "HIGH",
+        "detected_keywords": ["account block", "వెంటనే", "KYC verify"],
+        "detected_indicators": ["Account block threat", "Urgency pressure", "Fake KYC"],
+        "reason": "Threatens account blocking unless immediate KYC verification is done."
+    },
+    {
+        "language": "ta+en",
+        "transcript": "உங்கள் account block ஆகாமல் உடனே KYC verify பண்ணுங்கள்.",
+        "category": "FAKE_KYC",
+        "scam_probability": 94.0,
+        "severity": "HIGH",
+        "detected_keywords": ["account block", "உடனே", "KYC verify"],
+        "detected_indicators": ["Account block threat", "Tamil urgency", "Fake KYC"],
+        "reason": "Tamil code-mixed prompt coercing user to update KYC under block threat."
+    },
+    {
+        "language": "hi+en",
+        "transcript": "आपका account block होने वाला है, अभी KYC verify करिए.",
+        "category": "FAKE_KYC",
+        "scam_probability": 94.0,
+        "severity": "HIGH",
+        "detected_keywords": ["account block", "अभी", "KYC verify"],
+        "detected_indicators": ["Account block threat", "Hindi urgency", "Fake KYC"],
+        "reason": "Hindi code-mixed prompt pressuring user to perform instant fake KYC."
+    },
+
+    # ─── 6. ACCOUNT_THREAT ──────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Your account will be blocked if you don't complete verification right now.",
+        "category": "ACCOUNT_THREAT",
+        "scam_probability": 92.0,
+        "severity": "HIGH",
+        "detected_keywords": ["account will be blocked", "complete verification", "right now"],
+        "detected_indicators": ["Account threat", "Immediate deadline", "Coercion"],
+        "reason": "Threatens instant account blockade to induce panic."
+    },
+    {
+        "language": "te",
+        "transcript": "మీ అకౌంట్ బ్లాక్ అవుతుంది, వెంటనే వెరిఫై చేయాలి.",
+        "category": "ACCOUNT_THREAT",
+        "scam_probability": 92.0,
+        "severity": "HIGH",
+        "detected_keywords": ["బ్లాక్ అవుతుంది", "వెంటనే వెరిఫై"],
+        "detected_indicators": ["Account threat", "Telugu urgency"],
+        "reason": "Urgent Telugu threat alleging account deactivation."
+    },
+    {
+        "language": "ta+en",
+        "transcript": "உங்கள் account block ஆகும், உடனே verification செய்ய வேண்டும்.",
+        "category": "ACCOUNT_THREAT",
+        "scam_probability": 92.0,
+        "severity": "HIGH",
+        "detected_keywords": ["account block", "உடனே verification"],
+        "detected_indicators": ["Account threat", "Tamil urgency"],
+        "reason": "Tamil notification threatening account lock."
+    },
+    {
+        "language": "hi+en",
+        "transcript": "अगर आपने अभी verification नहीं किया तो आपका account block हो जाएगा.",
+        "category": "ACCOUNT_THREAT",
+        "scam_probability": 92.0,
+        "severity": "HIGH",
+        "detected_keywords": ["account block", "अभी verification"],
+        "detected_indicators": ["Account threat", "Hindi urgency"],
+        "reason": "Hindi conditional threat of immediate account blocking."
+    },
+
+    # ─── 7. UPI_FRAUD ───────────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Scan this QR code and enter your UPI PIN to receive 25000 rupees cashback.",
+        "category": "UPI_FRAUD",
+        "scam_probability": 97.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Scan this QR code", "enter your UPI PIN", "receive cashback"],
+        "detected_indicators": ["UPI PIN enter to receive money (reverse payment scam)", "Fake cashback"],
+        "reason": "Instructs user to enter UPI PIN to receive money — entering a PIN always deducts funds."
+    },
+    {
+        "language": "te+en",
+        "transcript": "ఈ QR code scan చేసి UPI PIN enter చేయండి, డబ్బులు మీ అకౌంట్లో క్రెడిట్ అవుతాయి.",
+        "category": "UPI_FRAUD",
+        "scam_probability": 97.0,
+        "severity": "HIGH",
+        "detected_keywords": ["QR code scan", "UPI PIN enter", "క్రెడిట్ అవుతాయి"],
+        "detected_indicators": ["UPI reverse payment fraud", "Telugu code-mixed"],
+        "reason": "Classic UPI scam promising incoming funds upon entering UPI PIN."
+    },
+
+    # ─── 8. PAYMENT_FRAUD ───────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Send 5000 rupees to this UPI ID right now to release your holding amount.",
+        "category": "PAYMENT_FRAUD",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Send 5000 rupees", "UPI ID", "release your holding"],
+        "detected_indicators": ["Advance payment request", "Holding release trick"],
+        "reason": "Demands upfront payment via UPI to unfreeze imaginary holding funds."
+    },
+    {
+        "language": "te+en",
+        "transcript": "ముందు 2000 rupees pay చేయండి, అప్పుడే 50000 loan release చేస్తాం.",
+        "category": "PAYMENT_FRAUD",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["pay చేయండి", "loan release"],
+        "detected_indicators": ["Advance fee fraud", "Loan scam"],
+        "reason": "Advance fee loan scam asking for money upfront."
+    },
+
+    # ─── 9. CARD_FRAUD ──────────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Share your 16 digit debit card number and 3 digit CVV to increase your credit limit.",
+        "category": "CARD_FRAUD",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["16 digit debit card", "3 digit CVV", "credit limit"],
+        "detected_indicators": ["Card credentials requested", "CVV demand"],
+        "reason": "Requests full card number and CVV code over phone."
+    },
+    {
+        "language": "hi+en",
+        "transcript": "कार्ड का 16 digit number और CVV बताइए, card block होने से बच जाएगा.",
+        "category": "CARD_FRAUD",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["16 digit number", "CVV बताइए", "card block"],
+        "detected_indicators": ["Card credentials requested", "Hindi code-mixed"],
+        "reason": "Hindi prompt asking for debit/credit card CVV number."
+    },
+
+    # ─── 10. REFUND_SCAM ────────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "We sent you a refund link. Click it and share the 6-digit confirmation code to receive money.",
+        "category": "REFUND_SCAM",
+        "scam_probability": 94.0,
+        "severity": "HIGH",
+        "detected_keywords": ["refund link", "share the 6-digit confirmation code"],
+        "detected_indicators": ["Refund link phishing", "OTP requested for refund"],
+        "reason": "Combines malicious link sending with OTP request for a fake refund."
+    },
+    {
+        "language": "ta+en",
+        "transcript": "Refund 4500 rupees process செய்ய OTP-யை உடனே சொல்லுங்கள்.",
+        "category": "REFUND_SCAM",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Refund", "process செய்ய", "OTP-யை உடனே சொல்லுங்கள்"],
+        "detected_indicators": ["Refund pretext", "OTP requested", "Tamil code-mixed"],
+        "reason": "Requests OTP under the pretext of depositing a refund."
+    },
+
+    # ─── 11. FAKE_REWARD_SCAM ───────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Congratulations! You won 25 lakh rupees in KBC lottery. Pay 5000 registration fee to claim.",
+        "category": "FAKE_REWARD_SCAM",
+        "scam_probability": 97.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Congratulations", "won 25 lakh", "lottery", "registration fee"],
+        "detected_indicators": ["Fake lottery prize", "Upfront registration fee demand"],
+        "reason": "Classic lottery/reward scam requiring upfront payment to claim fictitious winnings."
+    },
+    {
+        "language": "hi",
+        "transcript": "बधाई हो! आपको 10 लाख का इनाम मिला है. क्लेम करने के लिए 1000 रुपये जमा करें.",
+        "category": "FAKE_REWARD_SCAM",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["बधाई हो", "इनाम मिला है", "जमा करें"],
+        "detected_indicators": ["Lottery reward scam", "Hindi text"],
+        "reason": "Hindi reward scam demanding deposit fee for fake winnings."
+    },
+
+    # ─── 12. REMOTE_ACCESS_REQUEST ──────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Install this application AnyDesk or TeamViewer so I can help you fix the security error.",
+        "category": "REMOTE_ACCESS_REQUEST",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Install this application", "AnyDesk", "TeamViewer", "help you fix"],
+        "detected_indicators": ["Remote access app requested", "Tech support scam tactic"],
+        "reason": "Requests installation of remote access software to control user's screen/device."
+    },
+    {
+        "language": "te",
+        "transcript": "ఈ యాప్ ఇన్స్టాల్ చేయండి, నేను మీకు హెల్ప్ చేస్తాను.",
+        "category": "REMOTE_ACCESS_REQUEST",
+        "scam_probability": 90.0,
+        "severity": "HIGH",
+        "detected_keywords": ["యాప్ ఇన్స్టాల్ చేయండి", "హెల్ప్ చేస్తాను"],
+        "detected_indicators": ["App installation request", "Telugu assistance pretext"],
+        "reason": "Directs user to install unknown software for fake remote assistance."
+    },
+    {
+        "language": "ta",
+        "transcript": "இந்த application-ஐ install செய்யுங்கள், நான் உதவி செய்கிறேன்.",
+        "category": "REMOTE_ACCESS_REQUEST",
+        "scam_probability": 90.0,
+        "severity": "HIGH",
+        "detected_keywords": ["application-ஐ install செய்யுங்கள்", "உதவி செய்கிறேன்"],
+        "detected_indicators": ["App installation request", "Tamil assistance pretext"],
+        "reason": "Tamil instruction directing user to download remote software."
+    },
+    {
+        "language": "hi",
+        "transcript": "यह application install कर लीजिए, मैं आपकी मदद करता हूँ.",
+        "category": "REMOTE_ACCESS_REQUEST",
+        "scam_probability": 90.0,
+        "severity": "HIGH",
+        "detected_keywords": ["application install कर लीजिए", "मदद करता हूँ"],
+        "detected_indicators": ["App installation request", "Hindi assistance pretext"],
+        "reason": "Hindi instruction directing remote software installation."
+    },
+
+    # ─── 13. SUSPICIOUS_LINK ────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "I am sending a link on WhatsApp. Open it and log in with your netbanking password.",
+        "category": "SUSPICIOUS_LINK",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["sending a link", "WhatsApp", "netbanking password"],
+        "detected_indicators": ["Phishing link", "Credential theft link"],
+        "reason": "Directs user to an unverified link to capture netbanking credentials."
+    },
+
+    # ─── 14. FAKE_AUTHORITY ─────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "This is CBI Officer Sharma. Your Aadhaar is linked to money laundering in Mumbai.",
+        "category": "FAKE_AUTHORITY",
+        "scam_probability": 95.0,
+        "severity": "HIGH",
+        "detected_keywords": ["CBI Officer", "Aadhaar is linked", "money laundering"],
+        "detected_indicators": ["Police/CBI impersonation", "Digital arrest tactic"],
+        "reason": "Impersonates law enforcement officer alleging severe criminal charges."
+    },
+    {
+        "language": "te",
+        "transcript": "నేను పోలీస్ ఆఫీసర్ ని, మీ మీద వారెంట్ ఉంది. డిజిటల్ అరెస్ట్ చేస్తున్నాం.",
+        "category": "FAKE_AUTHORITY",
+        "scam_probability": 96.0,
+        "severity": "HIGH",
+        "detected_keywords": ["పోలీస్ ఆఫీసర్", "వారెంట్ ఉంది", "డిజిటల్ అరెస్ట్"],
+        "detected_indicators": ["Police impersonation", "Digital arrest threat", "Telugu"],
+        "reason": "Digital arrest scam in Telugu claiming police warrant."
+    },
+
+    # ─── 15. URGENCY_PRESSURE ───────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Don't disconnect the call until verification is complete or officers will arrive at your home.",
+        "category": "URGENCY_PRESSURE",
+        "scam_probability": 94.0,
+        "severity": "HIGH",
+        "detected_keywords": ["Don't disconnect the call", "officers will arrive"],
+        "detected_indicators": ["Call isolation tactic", "Urgency pressure", "Intimidation"],
+        "reason": "Coerces user to stay on the line to isolate them from verifying claims."
+    },
+
+    # ─── 16. PERSONAL_INFORMATION_REQUEST ───────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Please tell me your mother's maiden name, PAN number, and date of birth to verify.",
+        "category": "PERSONAL_INFORMATION_REQUEST",
+        "scam_probability": 87.0,
+        "severity": "MEDIUM",
+        "detected_keywords": ["mother's maiden name", "PAN number", "date of birth"],
+        "detected_indicators": ["Sensitive PII requested", "Identity theft risk"],
+        "reason": "Solicits sensitive personally identifiable information over phone."
+    },
+
+    # ─── 17. LEGITIMATE_SECURITY_WARNING (FALSE POSITIVE TEST) ─────────────────
+    {
+        "language": "en",
+        "transcript": "This is an automated security notice from HDFC Bank. Never share your OTP or PIN with anyone. Our employees will never ask for your OTP.",
+        "category": "LEGITIMATE_SECURITY_WARNING",
+        "scam_probability": 5.0,
+        "severity": "LOW",
+        "detected_keywords": ["Never share your OTP", "never ask for your OTP"],
+        "detected_indicators": ["Legitimate security warning", "Anti-phishing advisory"],
+        "reason": "Advises user NOT to share OTPs — this is a legitimate security education message."
+    },
+    {
+        "language": "te+en",
+        "transcript": "బ్యాంక్ అధికారుల తరఫున హెచ్చరిక: మీ OTP లేదా PIN ఎవ్వరికీ చెప్పకండి. బ్యాంక్ మిమ్మల్ని OTP కోరదు.",
+        "category": "LEGITIMATE_SECURITY_WARNING",
+        "scam_probability": 4.0,
+        "severity": "LOW",
+        "detected_keywords": ["ఎవ్వరికీ చెప్పకండి", "కోరదు"],
+        "detected_indicators": ["Legitimate security advisory", "Telugu warning"],
+        "reason": "Official warning in Telugu explicitly telling users to keep OTP confidential."
+    },
+    {
+        "language": "hi",
+        "transcript": "बैंक सुरक्षा चेतावनी: अपना ओटीपी कभी किसी के साथ साझा न करें. बैंक आपसे ओटीपी नहीं मांगता.",
+        "category": "LEGITIMATE_SECURITY_WARNING",
+        "scam_probability": 4.0,
+        "severity": "LOW",
+        "detected_keywords": ["साझा न करें", "नहीं मांगता"],
+        "detected_indicators": ["Legitimate warning", "Hindi warning"],
+        "reason": "Official security advisory in Hindi warning against sharing OTPs."
+    },
+
+    # ─── 18. NORMAL_CALL ────────────────────────────────────────────────────────
+    {
+        "language": "en",
+        "transcript": "Hi mom, I am reaching home in 20 minutes. Please keep dinner ready.",
+        "category": "NORMAL_CALL",
+        "scam_probability": 1.0,
+        "severity": "LOW",
+        "detected_keywords": ["reaching home", "dinner ready"],
+        "detected_indicators": ["Normal personal conversation"],
+        "reason": "Routine casual personal phone call."
+    },
+    {
+        "language": "te",
+        "transcript": "హలో అండీ, మీ ప్యాకేజ్ డెలివరీ చేయడానికి గేట్ దగ్గర ఉన్నాను. రావచ్చా?",
+        "category": "NORMAL_CALL",
+        "scam_probability": 2.0,
+        "severity": "LOW",
+        "detected_keywords": ["డెలివరీ", "గేట్ దగ్గర"],
+        "detected_indicators": ["Normal delivery call", "Telugu"],
+        "reason": "Routine legitimate delivery driver call."
+    },
+    {
+        "language": "ta",
+        "transcript": "வணக்கம், நாளை காலை 10 மணிக்கு உங்கள் அப்பாயிண்ட்மென்ட் உறுதி செய்யப்பட்டுள்ளது.",
+        "category": "NORMAL_CALL",
+        "scam_probability": 2.0,
+        "severity": "LOW",
+        "detected_keywords": ["அப்பாயிண்ட்மென்ட்", "உறுதி"],
+        "detected_indicators": ["Normal appointment reminder", "Tamil"],
+        "reason": "Standard clinic appointment reminder call in Tamil."
+    },
+    {
+        "language": "hi",
+        "transcript": "नमस्ते, मैं आपकी कार सर्विस की स्थिति बताने के लिए फोन कर रहा हूँ. आपकी कार शाम 5 बजे तैयार हो जाएगी.",
+        "category": "NORMAL_CALL",
+        "scam_probability": 2.0,
+        "severity": "LOW",
+        "detected_keywords": ["कार सर्विस", "तैयार हो जाएगी"],
+        "detected_indicators": ["Normal customer update", "Hindi"],
+        "reason": "Standard service update call in Hindi."
+    }
+]
+
+
+def generate_dataset_json():
+    dir_path = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.join(dir_path, "multilingual_voice_dataset.json")
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(MULTILINGUAL_VOICE_DATASET, f, ensure_ascii=False, indent=2)
+    print(f"[DATASET] Multilingual dataset saved with {len(MULTILINGUAL_VOICE_DATASET)} samples to {json_path}")
+    return json_path
+
+
+if __name__ == "__main__":
+    generate_dataset_json()

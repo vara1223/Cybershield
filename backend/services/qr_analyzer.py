@@ -68,7 +68,7 @@ def analyze_qr(image_b64: str = None, decoded_content: str = None) -> dict:
             "qr_content": None,
         }
 
-    # Analyze the decoded content
+    # Analyze the decoded content via local ML engines
     if qr_content.startswith(("http://", "https://", "www.")):
         url_result = analyze_url(qr_content)
         return {
@@ -78,6 +78,7 @@ def analyze_qr(image_b64: str = None, decoded_content: str = None) -> dict:
             "flags": flags + url_result.get("flags", []) + ["qr_url_analyzed"],
             "qr_content": qr_content,
             "url_analysis": url_result,
+            "ml_model": "OpenCV / pyzbar + Trained URL ML Model",
         }
 
     # UPI payment QR (upi://pay?...)
@@ -89,35 +90,25 @@ def analyze_qr(image_b64: str = None, decoded_content: str = None) -> dict:
         pn = params.get("pn", "")
         amount = params.get("am", "")
 
-        upi_score = 10
-        upi_flags = ["upi_payment_qr"] + flags
+        from services.upi_analyzer import analyze_upi
+        upi_res = analyze_upi(pa, message=f"Merchant: {pn}")
 
-        suspicious_terms = ["refund", "cashback", "prize", "lottery", "support", "help"]
-        if any(t in pa.lower() or t in pn.lower() for t in suspicious_terms):
-            upi_score += 40
-            upi_flags.append("suspicious_upi_payee")
-
-        if amount:
-            upi_score += 5
-            upi_flags.append(f"preset_amount:{amount}")
-
-        upi_score = clamp(upi_score)
-        verdict = score_to_verdict(upi_score)
         return {
-            "verdict": verdict,
-            "confidence": round(upi_score, 1),
-            "explanation": f"This is a UPI payment QR code for {pn or 'unknown merchant'} ({pa}). "
-                          + ("The payee details look suspicious." if verdict != "SAFE" else "The payee appears legitimate."),
-            "flags": upi_flags,
+            "verdict": upi_res["verdict"],
+            "confidence": upi_res["confidence"],
+            "explanation": f"This is a UPI payment QR code for {pn or 'unknown merchant'} ({pa}). {upi_res['explanation']}",
+            "flags": flags + ["upi_payment_qr"] + upi_res.get("flags", []),
             "qr_content": qr_content,
             "upi_details": {"pa": pa, "pn": pn, "amount": amount},
+            "ml_model": "OpenCV / pyzbar + Trained UPI ML Model",
         }
 
     # Generic text QR
     return {
         "verdict": "SAFE",
         "confidence": 15,
-        "explanation": f"This QR code contains plain text: '{qr_content[:100]}'. No URL or payment data detected.",
+        "explanation": f"This QR code contains plain text: '{qr_content[:100]}'. No malicious URL or payment vector detected.",
         "flags": flags + ["plain_text_qr"],
         "qr_content": qr_content,
+        "ml_model": "OpenCV / pyzbar QR Decoder",
     }

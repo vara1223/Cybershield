@@ -55,16 +55,18 @@ export default function URLScanScreen({ navigation }) {
     setLoading(true);
     try {
       const result = await api.analyzeURL(trimmed);
-      result.input_data = trimmed;
-      addScan(result);
-      setCurrentResult(result);
+      const entry = await addScan(result);
+      setCurrentResult(entry || result);
+      setLoading(false);
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.activeElement) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
       navigation.navigate('Result');
     } catch (e) {
+      setLoading(false);
       const msg = e?.response?.data?.detail || e?.message || 'Cannot reach the backend.';
       if (Platform.OS === 'web') { window.alert(msg); }
       else { Alert.alert('Analysis failed', msg); }
-    } finally {
-      setLoading(false);
     }
   }
 

@@ -14,3 +14,7 @@ class ScanLog(Base):
     tips = Column(JSON)
     raw = Column(JSON)
     scanned_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    user_name = Column(String, nullable=True, default="User")
+    user_email = Column(String, nullable=True, default="user@cybershield.local")
+
+

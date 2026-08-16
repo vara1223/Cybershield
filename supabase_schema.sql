@@ -45,7 +45,7 @@ EXECUTE FUNCTION public.create_profile_on_auth_user_insert();
 -- Scan history and results table
 CREATE TABLE scan_logs (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     feature TEXT NOT NULL,
     input_data TEXT,
     verdict TEXT NOT NULL,
@@ -58,21 +58,22 @@ CREATE TABLE scan_logs (
 
 ALTER TABLE scan_logs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can insert own scan logs"
+CREATE POLICY "Allow scan logs insert"
 ON scan_logs
 FOR INSERT
-WITH CHECK (auth.uid() = user_id);
+WITH CHECK (true);
 
-CREATE POLICY "Users can select own scan logs"
+CREATE POLICY "Allow scan logs select"
 ON scan_logs
 FOR SELECT
-USING (auth.uid() = user_id);
+USING (true);
 
-CREATE POLICY "Users can update own scan logs"
+CREATE POLICY "Allow scan logs update"
 ON scan_logs
 FOR UPDATE
-USING (auth.uid() = user_id)
-WITH CHECK (auth.uid() = user_id);
+USING (true)
+WITH CHECK (true);
+
 
 -- Login activity / session tracking
 CREATE TABLE login_activity (

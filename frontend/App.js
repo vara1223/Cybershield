@@ -1,11 +1,31 @@
 import React from 'react';
-import { Platform } from 'react-native';
+import { Platform, LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import AppNavigator from './navigation/AppNavigator';
 import { AuthProvider } from './context/AuthContext';
 
+LogBox.ignoreLogs([
+  '"shadow*" style props are deprecated',
+  '"textShadow*" style props are deprecated',
+  'props.pointerEvents is deprecated',
+]);
+
 if (Platform.OS === 'web') {
+  if (typeof console !== 'undefined') {
+    const origWarn = console.warn;
+    console.warn = (...args) => {
+      if (typeof args[0] === 'string' && (
+        args[0].includes('style props are deprecated') ||
+        args[0].includes('pointerEvents is deprecated') ||
+        args[0].includes('aria-hidden')
+      )) {
+        return;
+      }
+      origWarn(...args);
+    };
+  }
+
   const style = document.createElement('style');
   style.type = 'text/css';
   style.appendChild(document.createTextNode(`

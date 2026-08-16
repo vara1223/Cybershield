@@ -1,10 +1,7 @@
 import { Platform } from 'react-native';
-import Constants from 'expo-constants';
-
-const isExpoGo = Constants.appOwnership === 'expo';
 
 let Notifications = null;
-if (Platform.OS !== 'web' && !isExpoGo) {
+if (Platform.OS !== 'web') {
   try {
     Notifications = require('expo-notifications');
     Notifications.setNotificationHandler({
@@ -20,11 +17,12 @@ if (Platform.OS !== 'web' && !isExpoGo) {
 }
 
 /**
- * Requests push notification permission from the operating system.
+ * Requests push/local notification permission from the operating system.
+ * Configures high-priority Android notification channel for threat alerts.
  * Returns true if permission is granted, otherwise false.
  */
 export async function requestNotificationPermission() {
-  if (Platform.OS === 'web' || isExpoGo) return true;
+  if (Platform.OS === 'web') return true;
   if (!Notifications) return false;
   
   try {
@@ -36,6 +34,16 @@ export async function requestNotificationPermission() {
       finalStatus = status;
     }
     
+    if (finalStatus === 'granted' && Platform.OS === 'android') {
+      await Notifications.setNotificationChannelAsync('security-alerts', {
+        name: 'CyberShield Threat Alerts',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#4361EE',
+        sound: 'default',
+      }).catch((e) => console.log('Notification channel setup note:', e));
+    }
+
     return finalStatus === 'granted';
   } catch (err) {
     console.warn('Error requesting notification permission:', err);
@@ -47,7 +55,7 @@ export async function requestNotificationPermission() {
  * Schedules and fires a local notification immediately.
  */
 export async function sendLocalNotification(title, body) {
-  if (Platform.OS === 'web' || isExpoGo) return;
+  if (Platform.OS === 'web') return;
   if (!Notifications) return;
   
   try {
@@ -55,7 +63,8 @@ export async function sendLocalNotification(title, body) {
       content: {
         title,
         body,
-        sound: true,
+        sound: 'default',
+        channelId: Platform.OS === 'android' ? 'security-alerts' : undefined,
       },
       trigger: null, // trigger immediately
     });

@@ -5,11 +5,21 @@ import { Colors, Typography } from '../constants/theme';
 
 export default function WeeklyChart({ data = [], isDark = false, height = 120 }) {
   const colors = isDark ? Colors.dark : Colors.light;
-  const maxCount = Math.max(...data.map((d) => d.count), 1);
+  if (!data || data.length === 0) {
+    return (
+      <View style={[styles.container, { height, justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ fontSize: 12, color: colors.textSecondary, fontFamily: Typography.body }}>
+          No weekly threat volume data available.
+        </Text>
+      </View>
+    );
+  }
+
+  const maxCount = Math.max(...data.map((d) => d.count || 0), 1);
   const chartH = height - 28;
   const barWidth = 22;
   const gap = 12;
-  const totalWidth = data.length * (barWidth + gap) - gap;
+  const totalWidth = Math.max(140, data.length * (barWidth + gap) - gap);
 
   return (
     <View style={styles.container}>

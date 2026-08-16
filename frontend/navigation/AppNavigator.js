@@ -134,6 +134,11 @@ export default function AppNavigator() {
   const colors      = isDark ? Colors.dark : Colors.light;
   const loadHistory  = useScanStore((s) => s.loadHistory);
   const clearHistory = useScanStore((s) => s.clearHistory);
+  const loadTheme    = useScanStore((s) => s.loadTheme);
+
+  useEffect(() => {
+    loadTheme();
+  }, [loadTheme]);
 
   useEffect(() => {
     if (user) { loadHistory(); } else { clearHistory(); }
@@ -162,29 +167,23 @@ export default function AppNavigator() {
 
   return (
     <NavigationContainer ref={navigationRef} theme={navTheme} linking={linking}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
-          <>
-            <Stack.Screen name="Main">
-              {(props) => <MainTabs {...props} isDark={isDark} />}
-            </Stack.Screen>
-            <Stack.Screen name="Result"         component={ResultScreen} />
-            <Stack.Screen name="Settings"       component={SettingsScreen} />
-            <Stack.Screen name="URLScan"        component={URLScanScreen} />
-            <Stack.Screen name="ScreenshotScan" component={ScreenshotScanScreen} />
-            <Stack.Screen name="QRScan"         component={QRScanScreen} />
-            <Stack.Screen name="OTPScan"        component={OTPScanScreen} />
-            <Stack.Screen name="UPIScan"        component={UPIScanScreen} />
-            <Stack.Screen name="VoiceScan"      component={VoiceScanScreen} />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="Login"         component={LoginScreen} />
-            <Stack.Screen name="Register"      component={RegisterScreen} />
-            <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-            <Stack.Screen name="Admin"         component={AdminPanelScreen} />
-          </>
-        )}
+      <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName={user ? "Main" : "Login"}>
+
+        <Stack.Screen name="Main">
+          {(props) => <MainTabs {...props} isDark={isDark} />}
+        </Stack.Screen>
+        <Stack.Screen name="Result"         component={ResultScreen} />
+        <Stack.Screen name="Settings"       component={SettingsScreen} />
+        <Stack.Screen name="URLScan"        component={URLScanScreen} />
+        <Stack.Screen name="ScreenshotScan" component={ScreenshotScanScreen} />
+        <Stack.Screen name="QRScan"         component={QRScanScreen} />
+        <Stack.Screen name="OTPScan"        component={OTPScanScreen} />
+        <Stack.Screen name="UPIScan"        component={UPIScanScreen} />
+        <Stack.Screen name="VoiceScan"      component={VoiceScanScreen} />
+        <Stack.Screen name="Login"         component={LoginScreen} />
+        <Stack.Screen name="Register"      component={RegisterScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        <Stack.Screen name="Admin"         component={AdminPanelScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-load_dotenv()  # must run before any service imports that read os.getenv()
+load_dotenv(override=True)  # 100% Local ML Active (Voice Rate Limit 30/min Active) # force reload 2
 
 import os
 import logging
@@ -37,12 +37,50 @@ ALLOWED_ORIGINS = [o.strip() for o in _RAW_ORIGINS.split(",") if o.strip()]
 # ── Rate limiter ────────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
-from routes import url, screenshot, qr, otp, upi, voice, admin
+from routes import url, screenshot, qr, otp, upi, voice, admin, custom_auth
+# Import models so SQLAlchemy registers them before create_all
+from models import scan_log, admin_scan_log
+from models.otp_store import OTPRecord
+
+from sqlalchemy import text
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    with engine.connect() as conn:
+        # Legacy migrations for scan_logs
+        try:
+            conn.execute(text("ALTER TABLE scan_logs ADD COLUMN user_name VARCHAR DEFAULT 'Guest User'"))
+        except Exception:
+            pass
+        try:
+            conn.execute(text("ALTER TABLE scan_logs ADD COLUMN user_email VARCHAR DEFAULT 'guest@cybershield.local'"))
+        except Exception:
+            pass
+        # Ensure admin_scan_logs exists (created by create_all, but belt-and-suspenders)
+        try:
+            conn.execute(text("""
+                CREATE TABLE IF NOT EXISTS admin_scan_logs (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    scan_id    INTEGER NOT NULL UNIQUE,
+                    user_id    TEXT,
+                    user_name  TEXT NOT NULL DEFAULT 'User',
+                    user_email TEXT NOT NULL DEFAULT 'user@cybershield.local',
+                    scan_type  TEXT NOT NULL,
+                    scan_input TEXT,
+                    result     TEXT NOT NULL,
+                    confidence REAL,
+                    analysis   TEXT,
+                    status     TEXT NOT NULL DEFAULT 'completed',
+                    created_at DATETIME DEFAULT (datetime('now')),
+                    updated_at DATETIME DEFAULT (datetime('now'))
+                )
+            """))
+        except Exception:
+            pass
+        conn.commit()
     yield
+
 
 app = FastAPI(title="CyberShield API", version="1.0.0", lifespan=lifespan)
 
@@ -66,7 +104,9 @@ app.include_router(screenshot.router, prefix="/analyze")
 app.include_router(qr.router,         prefix="/analyze")
 app.include_router(otp.router,        prefix="/analyze")
 app.include_router(upi.router,        prefix="/analyze")
+app.include_router(voice.router,      prefix="/analyze")
 app.include_router(admin.router,      prefix="/admin")
+app.include_router(custom_auth.router, prefix="/api/custom-auth")
 
 from fastapi.staticfiles import StaticFiles
 

@@ -23,10 +23,17 @@ export default function QRScanScreen({ navigation }) {
   const colors = isDark ? Colors.dark : Colors.light;
 
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  
-  // On web, mock camera permission to be granted so we don't get stuck on check/errors
-  const permission = Platform.OS === 'web' ? { granted: true } : cameraPermission;
-  const requestPermission = Platform.OS === 'web' ? async () => ({ granted: true }) : requestCameraPermission;
+
+  useEffect(() => {
+    if (!cameraPermission?.granted && requestCameraPermission) {
+      requestCameraPermission().catch((err) => {
+        console.log('Camera permission request note:', err?.message);
+      });
+    }
+  }, []);
+
+  const permission = cameraPermission;
+  const requestPermission = requestCameraPermission;
 
   const [mode, setMode] = useState('camera'); // Default to camera
   const [loading, setLoading] = useState(false);
@@ -128,14 +135,20 @@ export default function QRScanScreen({ navigation }) {
     setLoading(true);
     try {
       const res = await api.analyzeQR(null, uri);
-      res.input_data = '[QR image]';
-      addScan(res);
-      setCurrentResult(res);
+      if (!res.input_data) {
+        res.input_data = '[QR Code Image]';
+      }
+      const entry1 = await addScan(res);
+      setCurrentResult(entry1 || res);
+      setLoading(false);
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.activeElement) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
       navigation.navigate('Result');
     } catch (e) {
+      setLoading(false);
       Alert.alert('Analysis failed', e?.response?.data?.detail || e?.message || 'Cannot reach the backend.');
     } finally {
-      setLoading(false);
       setTimeout(() => setScanned(false), 2000);
     }
   }
@@ -145,8 +158,8 @@ export default function QRScanScreen({ navigation }) {
     try {
       const res = await api.analyzeQR(content);
       res.input_data = content.slice(0, 60);
-      addScan(res);
-      setCurrentResult(res);
+      const entry2 = await addScan(res);
+      setCurrentResult(entry2 || res);
       navigation.navigate('Result');
     } catch (e) {
       Alert.alert('Analysis failed', e?.response?.data?.detail || e?.message || 'Cannot reach the backend.');
@@ -247,6 +260,7 @@ export default function QRScanScreen({ navigation }) {
             <View style={styles.cameraContainer}>
               <CameraView
                 ref={cameraRef}
+                facing="back"
                 style={StyleSheet.absoluteFill}
                 barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                 onBarcodeScanned={scanned || loading ? undefined : handleBarcodeScanned}

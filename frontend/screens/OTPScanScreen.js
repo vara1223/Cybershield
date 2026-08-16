@@ -14,9 +14,11 @@ import api from '../services/api';
 const ACCENT = '#FF4D4F';
 const ACCENT2 = '#CC2222';
 const EXAMPLES = [
-  'Your SBI OTP is 847291. Share it with our representative to unlock your frozen account immediately.',
-  'Dear customer, your HDFC account has been suspended. Call 09876543210 to reactivate within 2 hours.',
-  'Congratulations! You have won ₹10 lakh in Paytm lucky draw. Click http://bit.ly/claim to receive.',
+  { lang: '🇬🇧 EN', text: 'URGENT: Your HDFC account is suspended! Share your 6-digit OTP with our officer to reactivate.' },
+  { lang: '🇮🇳 TE', text: 'మీ అకౌంట్ బ్లాక్ కాకుండా ఉండటానికి మీ ఫోన్కి వచ్చిన OTP ని వెంటనే బ్యాంక్ అధికారికి చెప్పండి.' },
+  { lang: '🇮🇳 TA', text: 'உங்கள் கணக்கு block ஆகாமல் இருக்க உங்கள் phone-க்கு வந்த OTP-யை உடனே சொல்லுங்கள்.' },
+  { lang: '🇮🇳 HI', text: 'आपका बैंक खाता ब्लॉक हो गया है. अपना OTP तुरंत बैंक अधिकारी को देकर अकाउंट अनब्लॉक करें.' },
+  { lang: '🛡️ SAFE WARNING', text: 'HDFC Bank OTP is 593021. Do NOT share it with anyone. Bank never asks for OTP.' },
 ];
 
 export default function OTPScanScreen({ navigation }) {
@@ -38,17 +40,19 @@ export default function OTPScanScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const result = await api.analyzeOTP(message);
-      result.input_data = message.slice(0, 80);
-      addScan(result);
-      setCurrentResult(result);
+      const res = await api.analyzeOTP(message.trim());
+      const entry = await addScan(res);
+      setCurrentResult(entry || res);
+      setLoading(false);
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.activeElement) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
       navigation.navigate('Result');
     } catch (e) {
+      setLoading(false);
       const msg = e?.response?.data?.detail || e?.message || 'Cannot reach the backend.';
       if (Platform.OS === 'web') { window.alert(msg); }
       else { Alert.alert('Analysis failed', msg); }
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -124,17 +128,17 @@ export default function OTPScanScreen({ navigation }) {
           <TouchableOpacity
             key={idx}
             style={[styles.exampleCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => setMessage(ex)}
+            onPress={() => setMessage(ex.text)}
             activeOpacity={0.75}
           >
             <View style={[styles.exampleNumBadge, { backgroundColor: ACCENT + '15' }]}>
-              <Text style={[styles.exampleNum, { color: ACCENT }]}>#{idx + 1}</Text>
+              <Text style={[styles.exampleNum, { color: ACCENT, fontSize: 10 }]}>{ex.lang}</Text>
             </View>
-            <View style={{ flex: 1, gap: 6 }}>
-              <Text style={[styles.exampleText, { color: colors.text }]} numberOfLines={2}>{ex}</Text>
+            <View style={{ flex: 1, gap: 4 }}>
+              <Text style={[styles.exampleText, { color: colors.text }]} numberOfLines={2}>{ex.text}</Text>
               <View style={styles.tapRow}>
                 <Ionicons name="finger-print-outline" size={12} color={ACCENT} />
-                <Text style={[styles.tapHint, { color: ACCENT }]}>Tap to load this message</Text>
+                <Text style={[styles.tapHint, { color: ACCENT }]}>Tap to load message</Text>
               </View>
             </View>
           </TouchableOpacity>

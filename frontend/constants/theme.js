@@ -43,6 +43,8 @@ export const Colors = {
     amberDim:     '#FFB02022',
     indigo:       '#6366F1',
     indigoDim:    '#6366F130',
+    purple:       '#8B5CF6',
+    pink:         '#FF4D4F',
   },
 
   // ── Light ──────────────────────────────────────────────────────────────────
@@ -75,6 +77,8 @@ export const Colors = {
     amberDim:     '#D9770618',
     indigo:       '#4F46E5',
     indigoDim:    '#4F46E520',
+    purple:       '#8B5CF6',
+    pink:         '#EF4444',
   },
 
   // ── Verdict colors (shared) ────────────────────────────────────────────────

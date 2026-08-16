@@ -27,12 +27,16 @@ class UPIRequest(BaseModel):
         return v.strip()
 
 
+from utils.user_helper import extract_user_info
+from utils.admin_log_helper import save_admin_scan_log
+
 @router.post("/upi", response_model=ScanResponse)
 @limiter.limit("30/minute")
 async def scan_upi(request: Request, body: UPIRequest, db: Session = Depends(get_db)):
     result = analyze_upi(body.upi_id, body.message or "")
     tips   = get_tips("upi", result["verdict"])
     now    = datetime.now(timezone.utc).isoformat()
+    user_name, user_email = extract_user_info(request)
 
     log = ScanLog(
         feature="upi_scan",
@@ -42,9 +46,27 @@ async def scan_upi(request: Request, body: UPIRequest, db: Session = Depends(get
         explanation=result["explanation"],
         tips=tips,
         raw=result,
+        user_name=user_name,
+        user_email=user_email,
     )
     db.add(log)
     db.commit()
+    db.refresh(log)
+
+    # ── Write to admin monitoring table (idempotent) ──
+    user_id = request.headers.get("X-User-Id") or None
+    save_admin_scan_log(
+        db,
+        scan_id=log.id,
+        user_name=user_name,
+        user_email=user_email,
+        user_id=user_id,
+        scan_type="upi_scan",
+        scan_input=body.upi_id[:200],
+        result=result["verdict"],
+        confidence=result["confidence"],
+        analysis=result["explanation"],
+    )
 
     return ScanResponse(
         feature="upi_scan",
@@ -54,4 +76,12 @@ async def scan_upi(request: Request, body: UPIRequest, db: Session = Depends(get
         tips=tips,
         raw=result,
         scanned_at=now,
+        classification=result.get("Classification", result.get("classification", "Likely Safe")),
+        category=result.get("Category", result.get("category", "UPI_FRAUD")),
+        language=result.get("Language", result.get("language", "English")),
+        risk_level=result.get("Risk Level", result.get("risk_level", "Low")),
+        reason=result.get("reason", result["explanation"]),
+        recommended_action=result.get("recommended_action", tips[0] if tips else ""),
+        detected_indicators=result.get("detected_indicators", []),
+        input_data=body.upi_id,
     )

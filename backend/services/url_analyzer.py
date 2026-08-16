@@ -163,6 +163,7 @@ def analyze_url(url: str) -> dict:
         "explanation": _build_explanation(verdict, flags, domain),
         "flags": flags,
         "domain": domain,
+        "ml_model": "scikit-learn LogisticRegression",
     }
 
 

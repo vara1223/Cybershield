@@ -25,9 +25,30 @@ export default function BackButton({ navigation, top, left = 16, absolute = true
       Animated.timing(scale, { toValue: 0.85, duration: 80, useNativeDriver: Platform.OS !== 'web' }),
       Animated.spring(scale,  { toValue: 1,    useNativeDriver: Platform.OS !== 'web', speed: 40 }),
     ]).start();
-    if (onPress)                     { onPress(); return; }
-    if (navigation?.canGoBack())     { navigation.goBack(); return; }
-    if (navigation)                  { navigation.navigate('Main'); }
+    if (typeof onPress === 'function') {
+      try {
+        onPress();
+        return;
+      } catch (e) {}
+    }
+    if (navigation?.canGoBack && navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    if (navigation?.navigate) {
+      try {
+        navigation.navigate('Main', { screen: 'Home' });
+        return;
+      } catch (e) {
+        try {
+          navigation.navigate('Main');
+          return;
+        } catch (err) {}
+      }
+    }
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.history) {
+      window.history.back();
+    }
   }
 
   const posStyle = absolute

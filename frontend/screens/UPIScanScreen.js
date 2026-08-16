@@ -35,29 +35,38 @@ export default function UPIScanScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const result = await api.analyzeUPI(upiId, message);
-      result.input_data = upiId;
-      addScan(result);
-      setCurrentResult(result);
+      const res = await api.analyzeUPI(upiId.trim(), message.trim());
+      const entry = await addScan(res);
+      setCurrentResult(entry || res);
+      setLoading(false);
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.activeElement) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
       navigation.navigate('Result');
     } catch (e) {
+      setLoading(false);
       const msg = e?.response?.data?.detail || e?.message || 'Cannot reach the backend.';
       if (Platform.OS === 'web') { window.alert(msg); }
       else { Alert.alert('Analysis failed', msg); }
-    } finally {
-      setLoading(false);
     }
   }
 
   const DETECTION_POINTS = [
-    { icon: 'checkmark-circle-outline', color: '#22C55E', text: 'Validates UPI ID format against official patterns' },
-    { icon: 'warning-outline', color: '#F59E0B', text: 'Flags handles with "support", "refund", "lottery"' },
-    { icon: 'cash-outline', color: '#EF4444', text: 'Detects advance-fee scam patterns in messages' },
-    { icon: 'person-remove-outline', color: ACCENT, text: 'Identifies non-standard VPAs used by scammers' },
+    { icon: 'checkmark-circle-outline', color: '#22C55E', text: 'Validates UPI ID format against official bank patterns' },
+    { icon: 'warning-outline', color: '#F59E0B', text: 'Detects suspicious handles in English, Telugu, Tamil, & Hindi' },
+    { icon: 'cash-outline', color: '#EF4444', text: 'Flags reverse-payment UPI PIN fraud ("Enter PIN to receive money")' },
+    { icon: 'person-remove-outline', color: ACCENT, text: 'Identifies advance-fee scams and fake cashback claims' },
   ];
 
   const QUICK_IDS = [
     'support@icici', 'refund@paytm', 'lottery@upi',
+  ];
+
+  const MULTILINGUAL_QUICK_MSGS = [
+    { lang: '🇬🇧 EN', id: 'refund@paytm', msg: 'Scan QR code & enter UPI PIN to receive ₹25,000 cashback' },
+    { lang: '🇮🇳 TE', id: 'support@icici', msg: 'డబ్బులు మీ అకౌంట్లో పడాలంటే వెంటనే UPI పిన్ కొట్టండి' },
+    { lang: '🇮🇳 TA', id: 'lottery@upi', msg: 'பணம் பெற UPI PIN போடுங்க, ₹50,000 உடனே வரவு வைக்கப்படும்' },
+    { lang: '🇮🇳 HI', id: 'refund@paytm', msg: 'पैसे खाते में आने के लिए अपना UPI PIN दर्ज करें' },
   ];
 
   return (
@@ -138,6 +147,21 @@ export default function UPIScanScreen({ navigation }) {
                 numberOfLines={4}
                 textAlignVertical="top"
               />
+            </View>
+            <View style={styles.quickRow}>
+              <Text style={[styles.quickLabel, { color: colors.textMuted }]}>Try multilingual fraud messages:</Text>
+              {MULTILINGUAL_QUICK_MSGS.map((sample, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  onPress={() => {
+                    setUpiId(sample.id);
+                    setMessage(sample.msg);
+                  }}
+                  style={[styles.quickChip, { backgroundColor: '#8B5CF615', borderColor: '#8B5CF640' }]}
+                >
+                  <Text style={[styles.quickChipText, { color: ACCENT }]}>{`${sample.lang}: ${sample.msg.slice(0, 24)}...`}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
 

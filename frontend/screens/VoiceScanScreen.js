@@ -8,6 +8,7 @@ import { Colors, Typography, Spacing, Radius, Shadow } from '../constants/theme'
 import Header from '../components/Header';
 import ScanLineLoader from '../components/ScanLineLoader';
 import TextureBackground from '../components/TextureBackground';
+import ConfidenceArc from '../components/ConfidenceArc';
 import api from '../services/api';
 import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 
@@ -37,8 +38,21 @@ export default function VoiceScanScreen({ navigation }) {
   const [recordingUri, setRecordingUri] = useState(null);
   const [transcript, setTranscript] = useState(null);
   const [analysisVerdict, setAnalysisVerdict] = useState(null);
+  const [analysisConfidence, setAnalysisConfidence] = useState(0);
+  const [selectedLanguage, setSelectedLanguage] = useState('auto');
   const webChunksRef = useRef([]);
+  const webAudioBlobRef = useRef(null);
+  const mediaStreamRef = useRef(null);
+  const recordingStartTimeRef = useRef(0);
+  const audioContextRef = useRef(null);
+  const analyserRef = useRef(null);
   const fileInputRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const liveTranscriptRef = useRef('');
+
+  const [micVolume, setMicVolume] = useState(0);
+  const [isMicQuiet, setIsMicQuiet] = useState(false);
+  const [isProcessingState, setIsProcessingState] = useState(false);
 
   const timerRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -47,6 +61,9 @@ export default function VoiceScanScreen({ navigation }) {
   useEffect(() => {
     return () => {
       timerRef.current && clearInterval(timerRef.current);
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close(); } catch (e) {}
+      }
     };
   }, []);
 
@@ -69,41 +86,241 @@ export default function VoiceScanScreen({ navigation }) {
     Animated.timing(pulseAnim, { toValue: 1, duration: 200, useNativeDriver: Platform.OS !== 'web' }).start();
   }
 
-  // Web recording via MediaRecorder
+  // Web recording via MediaRecorder + Web Speech API
   async function startRecordingWeb() {
+    if (isProcessingState) return;
+    setIsProcessingState(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mr = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      mediaStreamRef.current = stream;
+
+      const audioTrack = stream.getAudioTracks()[0];
+      if (!audioTrack) {
+        throw new Error("No microphone audio track found.");
+      }
+
+      console.log('Recording started');
+      console.log('Microphone:', audioTrack.label || 'Default Microphone');
+      console.log('Track enabled:', audioTrack.enabled);
+      console.log('Track muted:', audioTrack.muted);
+      console.log('Track readyState:', audioTrack.readyState);
+      console.log('Audio track settings:', audioTrack.getSettings ? audioTrack.getSettings() : {});
+
       webChunksRef.current = [];
-      mr.ondataavailable = (e) => { if (e.data.size > 0) webChunksRef.current.push(e.data); };
-      mr.start();
-      setMediaRecorder(mr);
-      setIsRecording(true);
-      setDuration(0);
+      webAudioBlobRef.current = null;
+      liveTranscriptRef.current = '';
+      recordingStartTimeRef.current = Date.now();
       setRecordingUri(null);
       setTranscript(null);
       setAnalysisVerdict(null);
+      setDuration(0);
+      setMicVolume(0);
+      setIsMicQuiet(false);
+
+      // Web Audio API volume monitoring
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+          const actx = new AudioContext();
+          audioContextRef.current = actx;
+          const source = actx.createMediaStreamSource(stream);
+          const analyser = actx.createAnalyser();
+          analyser.fftSize = 256;
+          source.connect(analyser);
+          analyserRef.current = analyser;
+
+          const dataArray = new Uint8Array(analyser.frequencyBinCount);
+          let quietTicks = 0;
+
+          const checkVolume = () => {
+            if (!analyserRef.current) return;
+            analyserRef.current.getByteFrequencyData(dataArray);
+            let sum = 0;
+            for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+            const avg = sum / dataArray.length;
+            const vol = Math.min(100, Math.round((avg / 128) * 100));
+            setMicVolume(vol);
+
+            if (vol < 2) {
+              quietTicks++;
+              if (quietTicks > 10) setIsMicQuiet(true);
+            } else {
+              quietTicks = 0;
+              setIsMicQuiet(false);
+            }
+
+            if (mediaStreamRef.current && mediaStreamRef.current.active) {
+              requestAnimationFrame(checkVolume);
+            }
+          };
+          requestAnimationFrame(checkVolume);
+        }
+      } catch (e) {
+        console.log('Web Audio API monitoring note:', e?.message);
+      }
+
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported) {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+          mimeType = 'audio/webm';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        }
+      }
+      console.log('Chosen mimeType:', mimeType);
+
+      const mr = new MediaRecorder(stream, {
+        mimeType,
+        audioBitsPerSecond: 128000,
+      });
+
+      mr.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          console.log(`Audio chunk received: ${e.data.size} bytes`);
+          webChunksRef.current.push(e.data);
+        }
+      };
+
+      mr.onerror = (evt) => {
+        console.error('MediaRecorder error:', evt);
+      };
+
+      mr.onstart = () => {
+        console.log('MediaRecorder state:', mr.state);
+      };
+
+      mr.start(500);
+      setMediaRecorder(mr);
+      setIsRecording(true);
+      setIsProcessingState(false);
+
+      // Web Speech API initialization
+      if (typeof window !== 'undefined') {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          try {
+            const rec = new SpeechRecognition();
+            rec.continuous = true;
+            rec.interimResults = true;
+            rec.lang = selectedLanguage === 'hi' ? 'hi-IN' : selectedLanguage === 'te' ? 'te-IN' : selectedLanguage === 'ta' ? 'ta-IN' : 'en-IN';
+            rec.onresult = (evt) => {
+              let fullText = '';
+              for (let i = 0; i < evt.results.length; i++) {
+                fullText += evt.results[i][0].transcript + ' ';
+              }
+              const trimmed = fullText.trim();
+              if (trimmed) {
+                liveTranscriptRef.current = trimmed;
+                setTranscript(trimmed);
+              }
+            };
+            rec.start();
+            recognitionRef.current = rec;
+          } catch (e) {
+            console.log('Web Speech API note:', e?.message);
+          }
+        }
+      }
+
       startPulse();
       timerRef.current = setInterval(() => setDuration((d) => d + 1), 1000);
     } catch (e) {
-      Alert.alert('Recording error', e.message);
+      setIsProcessingState(false);
+      console.error('Unable to start microphone:', e);
+      Alert.alert('Microphone error', e?.message || 'Unable to access microphone.');
     }
   }
 
   async function stopRecordingWeb() {
+    if (isProcessingState) return null;
+    setIsProcessingState(true);
     return new Promise((resolve) => {
-      if (!mediaRecorder) return resolve(null);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (e) {}
+      }
+      if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+        setIsProcessingState(false);
+        return resolve(webAudioBlobRef.current || null);
+      }
+
+      const durationMs = Date.now() - (recordingStartTimeRef.current || 0);
+
       mediaRecorder.onstop = () => {
-        const blob = new Blob(webChunksRef.current, { type: 'audio/webm' });
-        const url = URL.createObjectURL(blob);
-        setRecordingUri(url);
-        setIsRecording(false);
-        clearInterval(timerRef.current);
-        stopPulse();
-        mediaRecorder.stream.getTracks().forEach((t) => t.stop());
-        resolve(url);
+        try {
+          const mime = mediaRecorder.mimeType || 'audio/webm;codecs=opus';
+          const blob = new Blob(webChunksRef.current, { type: mime });
+
+          console.log(`Recording duration: ${durationMs} ms`);
+          console.log(`Total chunks: ${webChunksRef.current.length}`);
+          webChunksRef.current.forEach((c, idx) => {
+            console.log(`  Chunk ${idx + 1}: ${c.size} bytes`);
+          });
+          console.log(`Final audio size: ${blob.size} bytes`);
+
+          // Stop Web Audio API & MediaStream tracks AFTER creating final Blob
+          if (audioContextRef.current) {
+            try { audioContextRef.current.close(); } catch (e) {}
+            audioContextRef.current = null;
+          }
+          analyserRef.current = null;
+          setMicVolume(0);
+          setIsMicQuiet(false);
+          mediaStreamRef.current?.getTracks().forEach((t) => t.stop());
+
+          setIsRecording(false);
+          clearInterval(timerRef.current);
+          stopPulse();
+          setIsProcessingState(false);
+
+          if (blob.size < 100) {
+            console.error('Recording empty:', blob.size, 'bytes');
+            Alert.alert(
+              'Empty Recording',
+              'Microphone recording was empty. Please check microphone permissions and try recording again.'
+            );
+            return resolve(null);
+          }
+
+          if (blob.size < 5000) {
+            console.warn('[MIC] Recording size is small:', blob.size, 'bytes. Sending for analysis...');
+          }
+
+          webAudioBlobRef.current = blob;
+          const url = URL.createObjectURL(blob);
+          setRecordingUri(url);
+          resolve(blob);
+        } catch (err) {
+          setIsProcessingState(false);
+          console.error('Error on MediaRecorder stop:', err);
+          resolve(null);
+        }
       };
-      mediaRecorder.stop();
+
+      try {
+        if (mediaRecorder.state === 'recording') {
+          mediaRecorder.requestData();
+        }
+      } catch (err) {
+        console.log('requestData note:', err?.message);
+      }
+
+      setTimeout(() => {
+        try {
+          if (mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+          }
+        } catch (err) {
+          console.log('stop note:', err?.message);
+        }
+      }, 200);
     });
   }
 
@@ -118,6 +335,9 @@ export default function VoiceScanScreen({ navigation }) {
       await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
       await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
+      // ── Reset all state for a fresh recording ──
+      liveTranscriptRef.current = '';
+      webAudioBlobRef.current = null;
       setIsRecording(true);
       setDuration(0);
       setRecordingUri(null);
@@ -172,6 +392,7 @@ export default function VoiceScanScreen({ navigation }) {
   const handleWebFileChange = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      webAudioBlobRef.current = file;
       const url = URL.createObjectURL(file);
       setRecordingUri(url);
       setTranscript(null);
@@ -182,31 +403,81 @@ export default function VoiceScanScreen({ navigation }) {
   };
 
   async function handleAnalyze() {
-    let uri = recordingUri;
+    let capturedBlob = webAudioBlobRef.current;
+
+    // ── 1. Turn off microphone automatically if currently recording ───────────
     if (isRecording) {
-      uri = await stopRecording();
+      console.log('[VOICE] Recording active when Analyze pressed — turning off microphone...');
+      capturedBlob = await stopRecording();
+      if (capturedBlob) {
+        webAudioBlobRef.current = capturedBlob;
+        console.log(`[VOICE] Microphone turned off. Captured audio blob: ${capturedBlob.size}B`);
+      }
     }
-    if (!uri) {
-      Alert.alert('No audio source', 'Please record a call or upload an audio file first.');
+
+    // ── 2. Snapshot state (avoid stale closure on re-render) ──────────────
+    const audioBlob   = capturedBlob || webAudioBlobRef.current || null;
+    const audioUri    = recordingUri || null;
+    const audioSource = audioBlob || audioUri || null;
+    const clientTranscript = (liveTranscriptRef.current || transcript || '').trim() || null;
+
+    if (audioBlob) {
+      console.log(`[VOICE] Audio blob ready: ${audioBlob.size}B type=${audioBlob.type}`);
+    } else if (audioUri) {
+      console.log(`[VOICE] Audio URI: ${audioUri}`);
+    }
+    if (clientTranscript) {
+      console.log(`[VOICE] Client transcript: ${clientTranscript.length} chars`);
+    }
+
+    if (!audioSource && !clientTranscript) {
+      Alert.alert('No audio source', 'Please record a call, upload an audio file, or enter a transcript first.');
+      return;
+    }
+
+    // ── 3. Reject empty blobs ──────────────────────────────────
+    if (audioBlob && audioBlob.size < 100) {
+      Alert.alert(
+        'Empty Audio Recording',
+        'The recording contains no audio bytes. Please record again or upload an audio file.'
+      );
       return;
     }
 
     setLoading(true);
     try {
       const format = IS_WEB ? 'webm' : 'm4a';
-      const res = await api.analyzeVoice(uri, format);
-      res.input_data = '[Voice audio file]';
-      addScan(res);
-      setCurrentResult(res);
-      setTranscript(res.raw?.transcript || '');
+      const res = await api.analyzeVoice(audioSource, format, clientTranscript, selectedLanguage);
+
+      // Normalize result shape
+      if (!res.input_data) {
+        res.input_data = res.raw?.transcript || res.transcript || clientTranscript || '[Voice Call Recording]';
+      }
+
+      const previewUrl = audioBlob ? URL.createObjectURL(audioBlob) : (audioUri || null);
+      if (previewUrl) {
+        res.audioUri = previewUrl;
+      }
+
+      const entry = await addScan(res);
+      setCurrentResult(entry || res);
+      setTranscript(res.raw?.transcript || res.transcript || clientTranscript || '');
       setAnalysisVerdict(res.verdict);
-      setTimeout(() => {
-        navigation.navigate('Result');
-      }, 1500);
-    } catch (e) {
-      Alert.alert('Analysis failed', e?.response?.data?.detail || e?.message || 'Cannot reach the backend.');
-    } finally {
+      setAnalysisConfidence(res.confidence || 0);
       setLoading(false);
+
+      // ── 4. Reset ephemeral refs so next analyze is a clean slate ─────
+      liveTranscriptRef.current = '';
+      webAudioBlobRef.current = null;
+
+      if (IS_WEB && typeof document !== 'undefined' && document.activeElement) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
+      navigation.navigate('Result');
+    } catch (e) {
+      setLoading(false);
+      const msg = e?.response?.data?.detail || e?.message || 'Cannot reach the backend.';
+      Alert.alert('Analysis failed', msg);
     }
   }
 
@@ -220,7 +491,18 @@ export default function VoiceScanScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TextureBackground isDark={isDark} />
       {loading && <ScanLineLoader isDark={isDark} label="Transcribing call with Whisper..." />}
-      <Header title="Voice Scanner" subtitle="Record or upload audio to spot scams" isDark={isDark} onBack={() => navigation.goBack()} />
+      <Header
+        title="Voice Scanner"
+        subtitle="Record or upload audio to spot scams"
+        isDark={isDark}
+        onBack={() => {
+          if (navigation.canGoBack()) {
+            navigation.goBack();
+          } else {
+            navigation.navigate('Main', { screen: 'Home' });
+          }
+        }}
+      />
 
       {IS_WEB && (
         <input
@@ -233,6 +515,45 @@ export default function VoiceScanScreen({ navigation }) {
       )}
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 60 }]} showsVerticalScrollIndicator={false}>
+        {/* Language Selector Bar */}
+        <View style={[{ padding: 14, backgroundColor: colors.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border, gap: 10 }, Shadow.sm]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="language-outline" size={16} color={colors.primary} />
+            <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 0.8, color: colors.textSecondary, fontFamily: Typography.monoBold }}>
+              SPOKEN AUDIO LANGUAGE
+            </Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+            {[
+              { id: 'auto', label: '🌐 Auto Detect' },
+              { id: 'en', label: '🇬🇧 English' },
+              { id: 'hi', label: '🇮🇳 Hindi (हिंदी)' },
+              { id: 'te', label: '🇮🇳 Telugu (తెలుగు)' },
+              { id: 'ta', label: '🇮🇳 Tamil (தமிழ்)' },
+            ].map((lang) => {
+              const active = selectedLanguage === lang.id;
+              return (
+                <TouchableOpacity
+                  key={lang.id}
+                  onPress={() => setSelectedLanguage(lang.id)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 10,
+                    borderWidth: 1,
+                    backgroundColor: active ? (isDark ? 'rgba(67, 97, 238, 0.25)' : 'rgba(67, 97, 238, 0.12)') : colors.surface,
+                    borderColor: active ? colors.primary : colors.border,
+                  }}
+                >
+                  <Text style={{ fontSize: 12, fontWeight: active ? '800' : '600', color: active ? colors.primary : colors.textSecondary, fontFamily: Typography.body }}>
+                    {lang.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {/* Record circular area */}
         <View style={[styles.recordSection, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
           <Animated.View
@@ -274,6 +595,35 @@ export default function VoiceScanScreen({ navigation }) {
             <Text style={[styles.timer, { color: colors.textSecondary, fontWeight: '600' }]}>
               Tap microphone to record
             </Text>
+          )}
+
+          {isRecording && (
+            <View style={{ width: '85%', marginTop: 12, alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                <Ionicons name="volume-high-outline" size={14} color={isMicQuiet ? '#F59E0B' : '#10B981'} style={{ marginRight: 4 }} />
+                <Text style={{ fontSize: 11, color: isMicQuiet ? '#F59E0B' : colors.textSecondary, fontWeight: '600' }}>
+                  Mic Volume: {micVolume}% {isMicQuiet ? '⚠️ Low input detected' : ''}
+                </Text>
+              </View>
+              <View style={{ width: '100%', height: 6, backgroundColor: isDark ? '#334155' : '#E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
+                <View style={{ width: `${Math.max( micVolume, 2 )}%`, height: '100%', backgroundColor: isMicQuiet ? '#F59E0B' : '#10B981' }} />
+              </View>
+            </View>
+          )}
+
+          {recordingUri && !isRecording && (
+            <View style={{ marginTop: 14, width: '90%', alignItems: 'center', backgroundColor: isDark ? '#1E293B' : '#F1F5F9', padding: 10, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}>
+              <Text style={{ fontSize: 11, color: colors.primary, marginBottom: 6, fontWeight: '800', letterSpacing: 0.5 }}>
+                AUDIO PREVIEW PLAYER
+              </Text>
+              {IS_WEB ? (
+                <audio src={recordingUri} controls style={{ width: '100%', height: 36 }} />
+              ) : (
+                <Text style={{ fontSize: 12, color: colors.text }}>
+                  Audio recording loaded and ready to analyze.
+                </Text>
+              )}
+            </View>
           )}
 
           {/* Color Waveform */}
@@ -333,6 +683,21 @@ export default function VoiceScanScreen({ navigation }) {
             </LinearGradient>
           </TouchableOpacity>
         </View>
+
+        {/* Threat Score Meter (Confidence Arc) Card */}
+        {analysisVerdict ? (
+          <View style={[{ alignItems: 'center', justifyContent: 'center', paddingVertical: 20, backgroundColor: colors.card, borderRadius: 20, borderWidth: 1, borderColor: colors.border }, Shadow.sm]}>
+            <ConfidenceArc
+              score={analysisConfidence}
+              verdict={analysisVerdict}
+              size={170}
+              isDark={isDark}
+            />
+            <Text style={{ marginTop: 10, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, color: Colors.verdict[analysisVerdict] || colors.primary, fontFamily: Typography.monoBold }}>
+              THREAT RISK CONFIDENCE · {analysisVerdict}
+            </Text>
+          </View>
+        ) : null}
 
         {/* Console-style Transcript Box */}
         <View style={[styles.transcriptCard, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>

@@ -3,26 +3,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../supabase';
 import { resetTo } from '../navigation/navigationRef';
 
+import api from '../services/api';
+
 const AuthContext = createContext({});
+
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [emailCooldownUntil, setEmailCooldownUntil] = useState(0);
   const mountedRef = useRef(true);
 
-  const loginAsGuest = () => {
-    const guestUser = {
-      id: 'guest',
-      email: 'guest@cybershield.local',
-      user_metadata: { full_name: 'Guest' },
-    };
-    setUser(guestUser);
-    setProfile({ full_name: 'Guest', email: 'guest@cybershield.local' });
-    AsyncStorage.setItem('current_user_id', 'guest').catch(() => {});
-  };
 
   const getFriendlyAuthError = (error) => {
     if (!error) return 'An unexpected authentication error occurred.';
@@ -59,20 +52,35 @@ export function AuthProvider({ children }) {
       setProfile(null);
       return null;
     }
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('full_name,email,created_at')
-      .eq('id', userId)
-      .single();
+    let data = null;
+    try {
+      const res = await supabase
+        .from('profiles')
+        .select('full_name,email,created_at')
+        .eq('id', userId)
+        .maybeSingle();
+      data = res.data;
+    } catch (_) {}
 
-    if (error) {
-      console.log('Supabase profile fetch error:', error.message);
-      setProfile(null);
-      return null;
+    const savedName = await AsyncStorage.getItem('mock_user_full_name').catch(() => null);
+
+    if (data && data.full_name) {
+      setProfile(data);
+      await AsyncStorage.setItem('mock_user_full_name', data.full_name).catch(() => {});
+      return data;
     }
 
-    setProfile(data);
-    return data;
+    const fallbackName = user?.user_metadata?.full_name || savedName || 'Operator';
+    const fallbackProfile = {
+      full_name: fallbackName,
+      email: user?.email || '',
+      created_at: new Date().toISOString(),
+    };
+    setProfile(fallbackProfile);
+    if (fallbackName && fallbackName !== 'Operator') {
+      await AsyncStorage.setItem('mock_user_full_name', fallbackName).catch(() => {});
+    }
+    return fallbackProfile;
   };
 
   const recordLoginActivity = async (userId, successful = true) => {
@@ -100,7 +108,6 @@ export function AuthProvider({ children }) {
       let currentUser = null;
       
       try {
-        // Wrap Supabase network requests in a 2-second timeout to prevent app hanging
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Timeout')), 2000)
         );
@@ -121,62 +128,20 @@ export function AuthProvider({ children }) {
             timeoutPromise
           ]).catch((e) => {
             console.log('User restore timed out or failed:', e.message);
-            return { data: { user: session.user } }; // fallback to session user if API fails
+            return { data: { user: session.user } };
           });
           currentUser = userResponse?.data?.user ?? session.user ?? null;
         }
-      } catch (err) {
-        console.log('Unexpected error in restoreSession:', err);
-      }
 
-      if (mountedRef.current) {
-        try {
-          if (currentUser?.id) {
-            setUser(currentUser);
-            await AsyncStorage.setItem('current_user_id', currentUser.id).catch(() => {});
-            // Wrap fetchProfile in a 2-second timeout to prevent startup hang
-            const profileTimeout = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Timeout')), 2000)
-            );
-            await Promise.race([
-              fetchProfile(currentUser.id),
-              profileTimeout
-            ]).catch((e) => {
-              console.log('Profile fetch timed out or failed:', e.message);
-            });
-          } else {
-            // If we had a mock login previously, restore it
-            const savedMockName = await AsyncStorage.getItem('mock_user_full_name').catch(() => null);
-            const currentId = await AsyncStorage.getItem('current_user_id').catch(() => null);
-            if (currentId === 'test-user-id') {
-              const mockUser = {
-                id: 'test-user-id',
-                email: 'devivaraprasadm5032.sse@saveetha.com',
-                user_metadata: { full_name: savedMockName || 'Devivaraprasad' },
-              };
-              setUser(mockUser);
-              setProfile({
-                full_name: savedMockName || 'Devivaraprasad',
-                email: 'devivaraprasadm5032.sse@saveetha.com',
-                created_at: new Date().toISOString()
-              });
-            } else if (currentId === 'guest') {
-              const guestUser = {
-                id: 'guest',
-                email: 'guest@cybershield.local',
-                user_metadata: { full_name: 'Guest' },
-              };
-              setUser(guestUser);
-              setProfile({ full_name: 'Guest', email: 'guest@cybershield.local' });
-            } else {
-              setUser(null);
-              setProfile(null);
-              await AsyncStorage.removeItem('current_user_id').catch(() => {});
-            }
-          }
-        } catch (e) {
-          console.log('Error in restoring local state:', e);
-        } finally {
+        if (currentUser && mountedRef.current) {
+          setUser(currentUser);
+          await AsyncStorage.setItem('current_user_id', currentUser.id).catch(() => {});
+          await fetchProfile(currentUser.id);
+        }
+      } catch (err) {
+        console.log('Session restoration failed:', err);
+      } finally {
+        if (mountedRef.current) {
           setLoading(false);
         }
       }
@@ -187,28 +152,16 @@ export function AuthProvider({ children }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         try {
-          const nextUser = session?.user ?? null;
           if (mountedRef.current) {
-            if (nextUser?.id) {
-              setUser(nextUser);
-              await AsyncStorage.setItem('current_user_id', nextUser.id).catch(() => {});
-              
-              // Wrap fetchProfile in a 2-second timeout to prevent blocking/hanging
-              const profileTimeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Timeout')), 2000)
-              );
-              await Promise.race([
-                fetchProfile(nextUser.id),
-                profileTimeout
-              ]).catch((e) => {
-                console.log('Profile fetch inside onAuthStateChange timed out or failed:', e.message);
-              });
+            if (session?.user) {
+              setUser(session.user);
+              await AsyncStorage.setItem('current_user_id', session.user.id).catch(() => {});
+              await fetchProfile(session.user.id);
             } else {
               const currentId = await AsyncStorage.getItem('current_user_id').catch(() => null);
-              if (currentId !== 'test-user-id' && currentId !== 'guest') {
+              if (!currentId) {
                 setUser(null);
                 setProfile(null);
-                await AsyncStorage.removeItem('current_user_id').catch(() => {});
               }
             }
           }
@@ -227,14 +180,26 @@ export function AuthProvider({ children }) {
   const signUp = async ({ full_name, email, password }) => {
     setAuthLoading(true);
     try {
+      const cleanName = (full_name || '').trim();
+      const cleanEmail = (email || '').trim().toLowerCase();
+
       if (!canSendEmail()) {
         throw new Error('Please wait a few minutes before requesting another email.');
       }
 
-      const { data, error } = await supabase.auth.signUp(
-        { email, password },
-        { data: { full_name } }
-      );
+      if (cleanName) {
+        await AsyncStorage.setItem('mock_user_full_name', cleanName).catch(() => {});
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: password,
+        options: {
+          data: {
+            full_name: cleanName,
+          },
+        },
+      });
       if (error) {
         const friendly = getFriendlyAuthError(error);
         if (error.status === 429 || friendly.includes('Too many email requests')) {
@@ -246,26 +211,34 @@ export function AuthProvider({ children }) {
       recordEmailRequest();
 
       const userId = data.user?.id || data.session?.user?.id;
-      const hasSession = Boolean(data.session?.user?.id);
       if (userId) {
         await AsyncStorage.setItem('current_user_id', userId).catch(() => {});
-      }
-      if (userId && hasSession) {
-        const { error: profileError } = await supabase.from('profiles').upsert(
-          {
-            id: userId,
-            full_name,
-            email,
-          },
-          { onConflict: 'id' }
-        );
-        if (profileError) {
-          throw new Error(getFriendlyAuthError(profileError));
+        await AsyncStorage.setItem('current_user_email', cleanEmail).catch(() => {});
+        try {
+          await supabase.from('profiles').upsert(
+            {
+              id: userId,
+              full_name: cleanName || cleanEmail.split('@')[0],
+              email: cleanEmail,
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: 'id' }
+          );
+        } catch (e) {
+          console.log('[AuthContext] profiles upsert warning:', e?.message);
         }
-        await recordLoginActivity(userId, true);
-      }
-      if (userId) {
-        await fetchProfile(userId);
+
+        // Only log them in if a session was actually established (e.g. email confirmation disabled)
+        if (data.session) {
+          const newProfile = {
+            full_name: cleanName || cleanEmail.split('@')[0],
+            email: cleanEmail,
+            created_at: new Date().toISOString(),
+          };
+          setProfile(newProfile);
+          setUser((prev) => (prev ? { ...prev, user_metadata: { ...(prev.user_metadata || {}), full_name: cleanName } } : data.user));
+          await recordLoginActivity(userId, true);
+        }
       }
 
       return data;
@@ -276,15 +249,21 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const signIn = async ({ email, password }) => {
+  const signIn = async (emailOrObj, passwordArg) => {
     setAuthLoading(true);
     try {
-      const trimmedEmail = email.trim().toLowerCase();
-      
+      const email = typeof emailOrObj === 'object' && emailOrObj !== null ? emailOrObj.email : emailOrObj;
+      const password = typeof emailOrObj === 'object' && emailOrObj !== null ? emailOrObj.password : passwordArg;
+
+      if (!email) {
+        throw new Error('Email is required.');
+      }
+      const trimmedEmail = (email || '').trim().toLowerCase();
+
       let data = null;
       let error = null;
       
-      // Try normal Supabase login first
+      // Try Supabase login
       try {
         const res = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
@@ -296,26 +275,11 @@ export function AuthProvider({ children }) {
         error = err;
       }
 
-      // If Supabase authentication failed, check if we should trigger offline E2E bypass
-      if (error && trimmedEmail === 'devivaraprasadm5032.sse@saveetha.com' && password === '1234567') {
-        // Load persisted name (in case user changed it previously)
-        const savedName = await AsyncStorage.getItem('mock_user_full_name').catch(() => null);
-        const mockUser = {
-          id: 'test-user-id',
-          email: 'devivaraprasadm5032.sse@saveetha.com',
-          user_metadata: { full_name: savedName || 'Devivaraprasad' },
-        };
-        setUser(mockUser);
-        setProfile({
-          full_name: savedName || 'Devivaraprasad',
-          email: 'devivaraprasadm5032.sse@saveetha.com',
-          created_at: new Date().toISOString()
-        });
-        await AsyncStorage.setItem('current_user_id', 'test-user-id').catch(() => {});
-        return { user: mockUser, session: { user: mockUser } };
-      }
-
       if (error) {
+        const errMsg = (error.message || '').toLowerCase();
+        if (errMsg.includes('invalid login credentials') || errMsg.includes('user not found')) {
+          throw new Error('Incorrect password. Please check your credentials.');
+        }
         throw error;
       }
 
@@ -324,25 +288,25 @@ export function AuthProvider({ children }) {
       if (currentUser && mountedRef.current) {
         setUser(currentUser);
         await AsyncStorage.setItem('current_user_id', userId).catch(() => {});
+        await AsyncStorage.setItem('current_user_email', trimmedEmail).catch(() => {});
       }
 
       if (userId) {
-        const profileData = await fetchProfile(userId);
-        if (!profileData) {
-          const fullName = data.user?.user_metadata?.full_name || '';
-          const { error: profileError } = await supabase.from('profiles').upsert(
-            {
-              id: userId,
-              full_name: fullName || email,
-              email,
-            },
-            { onConflict: 'id' }
-          );
-          if (profileError) {
-            throw profileError;
+        try {
+          const profileData = await fetchProfile(userId);
+          if (!profileData) {
+            const fullName = data.user?.user_metadata?.full_name || '';
+            await supabase.from('profiles').upsert(
+              {
+                id: userId,
+                full_name: fullName || trimmedEmail.split('@')[0],
+                email: trimmedEmail,
+              },
+              { onConflict: 'id' }
+            );
+            await fetchProfile(userId);
           }
-          await fetchProfile(userId);
-        }
+        } catch (_) {}
         await recordLoginActivity(userId, true);
       }
 
@@ -354,6 +318,7 @@ export function AuthProvider({ children }) {
     }
   };
 
+
   const signOut = async () => {
     setAuthLoading(true);
     try {
@@ -361,6 +326,8 @@ export function AuthProvider({ children }) {
       setUser(null);
       setProfile(null);
       await AsyncStorage.removeItem('current_user_id').catch(() => {});
+      await AsyncStorage.removeItem('current_user_email').catch(() => {});
+      await AsyncStorage.removeItem('mock_user_full_name').catch(() => {});
 
       // Mock/guest users were never signed into Supabase — just clear state
       if (!user?.id || user.id === 'guest' || user.id === 'test-user-id') {
@@ -463,32 +430,63 @@ export function AuthProvider({ children }) {
   const updateProfileName = async (newName) => {
     if (!newName || !newName.trim()) return;
     const trimmed = newName.trim();
-
-    // Capture previous name for rollback
     const previousName = profile?.full_name || '';
 
-    // ── Optimistic update: update UI immediately ──────────────────────
+    // 1. Optimistic UI update
     setProfile((prev) =>
       prev ? { ...prev, full_name: trimmed } : { full_name: trimmed, email: user?.email || '' }
     );
+    setUser((prev) =>
+      prev ? { ...prev, user_metadata: { ...(prev?.user_metadata || {}), full_name: trimmed } } : prev
+    );
 
-    // ── Guest or mock users: persist name locally, no Supabase call ───
-    if (!user?.id || user.id === 'guest' || user.id === 'test-user-id') {
-      await AsyncStorage.setItem('mock_user_full_name', trimmed).catch(() => {});
-      return;
+    // 2. Persist locally in AsyncStorage
+    await AsyncStorage.setItem('mock_user_full_name', trimmed).catch(() => {});
+
+    const userEmail = (profile?.email || user?.email || '').trim().toLowerCase();
+
+    // 3. Sync to backend SQLite database (ScanLog table)
+    if (userEmail) {
+      api.updateUserName(userEmail, trimmed).catch((err) =>
+        console.log('[AuthContext] api.updateUserName warning:', err)
+      );
     }
 
-    // ── Real users: persist to Supabase ──────────────────────────────
-    const { error } = await supabase
-      .from('profiles')
-      .update({ full_name: trimmed })
-      .eq('id', user.id);
-    if (error) {
-      // Revert optimistic update on failure
-      setProfile((prev) => prev ? { ...prev, full_name: previousName } : prev);
-      throw new Error(error.message);
+    // 4. Sync to Supabase Auth user metadata
+    try {
+      await supabase.auth.updateUser({ data: { full_name: trimmed } });
+    } catch (err) {
+      console.log('[AuthContext] supabase.auth.updateUser warning:', err?.message);
+    }
+
+    // 5. Sync to Supabase public.profiles and public.users tables
+    if (user?.id && user.id !== 'guest') {
+      try {
+        await supabase
+          .from('profiles')
+          .upsert({ id: user.id, email: userEmail || user.email, full_name: trimmed }, { onConflict: 'id' });
+      } catch (err) {
+        console.log('[AuthContext] profiles upsert warning:', err?.message);
+      }
+
+      if (userEmail) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ full_name: trimmed })
+            .eq('email', userEmail);
+        } catch (_) {}
+
+        try {
+          await supabase
+            .from('users')
+            .update({ full_name: trimmed, name: trimmed })
+            .eq('email', userEmail);
+        } catch (_) {}
+      }
     }
   };
+
 
   const checkEmailExists = async (email) => {
     if (!email) return false;
@@ -585,9 +583,9 @@ export function AuthProvider({ children }) {
       updatePassword,
       checkEmailExists,
       completePasswordReset,
-      loginAsGuest,
       updateProfileName,
     }),
+
     [user, profile, loading, authLoading]
   );
 

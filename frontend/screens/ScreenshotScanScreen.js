@@ -31,61 +31,87 @@ export default function ScreenshotScanScreen({ navigation }) {
   const insets = useSafeAreaInsets();
 
   const [imageUri, setImageUri] = useState(null);
+  const [imageAsset, setImageAsset] = useState(null);
   const [loading, setLoading] = useState(false);
 
   async function pickImage() {
     try {
-      // 1. On Web, launch directly
       if (Platform.OS === 'web') {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: 'images',
           quality: 0.85,
+          base64: true,
         });
         if (!result.canceled && result.assets?.[0]) {
-          setImageUri(result.assets[0].uri);
+          const asset = result.assets[0];
+          setImageUri(asset.uri);
+          if (asset.base64) {
+            setImageAsset({ base64: asset.base64, uri: asset.uri });
+          } else if (asset.file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const resStr = reader.result || '';
+              const b64 = resStr.includes(',') ? resStr.split(',')[1] : resStr;
+              setImageAsset({ base64: b64, uri: asset.uri });
+            };
+            reader.readAsDataURL(asset.file);
+          } else if (asset.uri) {
+            try {
+              const res = await fetch(asset.uri);
+              const blob = await res.blob();
+              const reader = new FileReader();
+              reader.onload = () => {
+                const resStr = reader.result || '';
+                const b64 = resStr.includes(',') ? resStr.split(',')[1] : resStr;
+                setImageAsset({ base64: b64, uri: asset.uri });
+              };
+              reader.readAsDataURL(blob);
+            } catch (err) {}
+          }
         }
         return;
       }
 
-      // 2. On Native, check existing permissions
       const permissionCheck = await ImagePicker.getMediaLibraryPermissionsAsync();
       
       if (permissionCheck.status === 'granted') {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: 'images',
           quality: 0.85,
+          base64: true,
         });
         if (!result.canceled && result.assets?.[0]) {
           setImageUri(result.assets[0].uri);
+          setImageAsset(result.assets[0]);
         }
         return;
       }
 
-      // 3. On Android, try direct launch (runs without runtime permission on Android 11+)
       if (Platform.OS === 'android') {
         try {
           const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: 'images',
             quality: 0.85,
+            base64: true,
           });
           if (!result.canceled && result.assets?.[0]) {
             setImageUri(result.assets[0].uri);
+            setImageAsset(result.assets[0]);
             return;
           }
-        } catch (err) {
-          // Fall through to permission request
-        }
+        } catch (err) {}
       }
 
-      // 4. Request permission on native
       const permissionRequest = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (permissionRequest.status === 'granted') {
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: 'images',
           quality: 0.85,
+          base64: true,
         });
         if (!result.canceled && result.assets?.[0]) {
           setImageUri(result.assets[0].uri);
+          setImageAsset(result.assets[0]);
         }
       } else {
         Alert.alert(
@@ -106,17 +132,23 @@ export default function ScreenshotScanScreen({ navigation }) {
     }
     setLoading(true);
     try {
-      const result = await api.analyzeScreenshot(imageUri);
-      result.input_data = '[screenshot]';
-      addScan(result);
-      setCurrentResult(result);
+      const payloadSource = imageAsset || imageUri;
+      const result = await api.analyzeScreenshot(payloadSource);
+      if (!result.input_data) {
+        result.input_data = result.extracted_text || '[screenshot]';
+      }
+      const entry = await addScan(result);
+      setCurrentResult(entry || result);
+      setLoading(false);
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.activeElement) {
+        try { document.activeElement.blur(); } catch (e) {}
+      }
       navigation.navigate('Result');
     } catch (e) {
+      setLoading(false);
       const msg = e?.response?.data?.detail || e?.message || 'Cannot reach the backend.';
       if (Platform.OS === 'web') { window.alert(msg); }
       else { Alert.alert('Analysis failed', msg); }
-    } finally {
-      setLoading(false);
     }
   }
 

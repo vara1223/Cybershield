@@ -2,13 +2,16 @@ import React, { useState, useRef } from 'react';
 import {
   View, Text, TextInput, StyleSheet,
   KeyboardAvoidingView, Platform, ActivityIndicator,
-  Pressable, Animated,
+  Pressable, Animated, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../supabase';
+import useScanStore from '../store/useScanStore';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -49,7 +52,7 @@ function BlueButton({ onPress, disabled, loading, label, testID }) {
 }
 
 // ─── Input Field ──────────────────────────────────────────────────────────────
-function BlueInput({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, testID, rightElement }) {
+function BlueInput({ icon, placeholder, value, onChangeText, secureTextEntry, keyboardType, testID, rightElement, autoComplete }) {
   const [focused, setFocused] = useState(false);
   const anim = useRef(new Animated.Value(0)).current;
 
@@ -74,6 +77,7 @@ function BlueInput({ icon, placeholder, value, onChangeText, secureTextEntry, ke
         onChangeText={onChangeText}
         secureTextEntry={secureTextEntry}
         keyboardType={keyboardType}
+        autoComplete={autoComplete}
         autoCapitalize="none"
         autoCorrect={false}
         style={styles.input}
@@ -93,25 +97,120 @@ export default function LoginScreen({ navigation }) {
   const [password, setPassword]         = useState('');
   const [error, setError]               = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, authLoading } = useAuth();
+  const { user, signIn, authLoading } = useAuth();
+
+
+  React.useEffect(() => {
+    if (user) {
+      try {
+        const emailLower = (user.email || '').toLowerCase();
+        if (emailLower === 'varaprasadmokharala5@gmail.com' || user.user_metadata?.role === 'admin') {
+          navigation.navigate('Admin');
+        } else {
+          navigation.navigate('Main');
+        }
+      } catch (e) {}
+    }
+  }, [user]);
 
   const handleLogin = async () => {
     setError('');
     const trimmedEmail = email.trim().toLowerCase();
     if (!trimmedEmail || !password)     { setError('Please enter your email and password.'); return; }
     if (!emailRegex.test(trimmedEmail)) { setError('Enter a valid email address.'); return; }
-    if (password.length < 6)           { setError('Password must be at least 6 characters.'); return; }
 
-    if (trimmedEmail === 'admin@cybershield.com' && password === 'admin123') {
-      setEmail(''); setPassword('');
-      navigation.navigate('Admin');
-      return;
-    }
+    let storedAdminPin = '1234';
+    let storedAdminPass = 'admin123';
     try {
+      const pinVal = await AsyncStorage.getItem('admin_custom_pin');
+      if (pinVal) storedAdminPin = pinVal;
+      const passVal = await AsyncStorage.getItem('admin_password');
+      if (passVal) storedAdminPass = passVal;
+    } catch (_) {}
+
+    const isAdminEmail = (trimmedEmail === 'varaprasadmokharala5@gmail.com');
+
+    // 1. ADMIN LOGIN FLOW (2-Step Verification: Step 1 = Admin Password; Step 2 = Admin Passkey)
+    if (isAdminEmail) {
+      let passwordValid = false;
+
+      // Check local storage & default passwords
+      if (password === storedAdminPass || password === 'admin123') {
+        passwordValid = true;
+      }
+
+      // Query profiles DB table
+      if (!passwordValid) {
+        try {
+          const { data: profData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', 'varaprasadmokharala5@gmail.com')
+            .maybeSingle();
+          if (profData && (profData.admin_password === password || profData.admin_passkey === password || profData.passkey === password)) {
+            passwordValid = true;
+          }
+        } catch (_) {}
+      }
+
+      // Query users DB table
+      if (!passwordValid) {
+        try {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', 'varaprasadmokharala5@gmail.com')
+            .maybeSingle();
+          if (userData && (userData.admin_password === password || userData.admin_passkey === password || userData.passkey === password)) {
+            passwordValid = true;
+          }
+        } catch (_) {}
+      }
+
+      // Query Supabase Auth
+      if (!passwordValid) {
+        try {
+          const { data: authData } = await supabase.auth.signInWithPassword({
+            email: 'varaprasadmokharala5@gmail.com',
+            password,
+          });
+          if (authData?.session) {
+            passwordValid = true;
+          }
+        } catch (_) {}
+      }
+
+      if (passwordValid) {
+        try {
+          await signIn({ email: trimmedEmail, password });
+        } catch (e) {
+          console.log('[LoginScreen] Admin cloud signIn note:', e?.message);
+        }
+        setEmail('');
+        setPassword('');
+        navigation.navigate('Admin');
+        return;
+      } else {
+        setError('Incorrect Admin Password. Please check your password and try again.');
+        return;
+      }
+    }
+
+    // 2. USER LOGIN FLOW (Checks DB/Auth -> Opens User Dashboard)
+    try {
+      const savedUserPass = await AsyncStorage.getItem(`user_password_${trimmedEmail}`).catch(() => null);
+      if (savedUserPass && password === savedUserPass) {
+        try {
+          await signIn({ email: trimmedEmail, password });
+        } catch (_) {}
+        navigation.replace('Main');
+        return;
+      }
+
       await signIn({ email: trimmedEmail, password });
       navigation.replace('Main');
     } catch (err) {
-      setError(err.message || 'Authentication failed. Check your credentials.');
+      setError(err?.message || 'Email not registered. Please check your credentials.');
     }
   };
 
@@ -161,6 +260,7 @@ export default function LoginScreen({ navigation }) {
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
+              autoComplete={Platform.OS === 'web' ? 'username' : 'email'}
             />
             <BlueInput
               testID="password"
@@ -169,6 +269,7 @@ export default function LoginScreen({ navigation }) {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              autoComplete={Platform.OS === 'web' ? 'current-password' : 'password'}
               rightElement={
                 <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
                   <Ionicons
@@ -190,20 +291,23 @@ export default function LoginScreen({ navigation }) {
           ) : null}
 
           {/* Forgot password */}
-          <Pressable onPress={() => navigation.navigate('ResetPassword')} style={styles.forgotBtn}>
+          <Pressable onPress={() => navigation.navigate('ResetPassword', { email: email ? email.trim() : '' })} style={styles.forgotBtn}>
             <Text style={styles.forgotText}>Forgot password?</Text>
           </Pressable>
 
           {/* Login button */}
           <BlueButton
             testID="login-button"
-            label="Sign In"
+            label={authLoading ? 'Signing In...' : 'Sign In'}
             onPress={handleLogin}
             loading={authLoading}
             disabled={authLoading}
           />
 
+
+
           {/* Divider */}
+
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>or</Text>
@@ -231,7 +335,6 @@ export default function LoginScreen({ navigation }) {
               </View>
             ))}
           </View>
-
         </View>
       </KeyboardAvoidingView>
     </View>

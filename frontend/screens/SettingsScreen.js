@@ -13,6 +13,7 @@ import {
   Easing,
   Platform,
   Image,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,8 +22,9 @@ import { Colors, Shadow, Typography } from '../constants/theme';
 import useScanStore from '../store/useScanStore';
 import { useAuth } from '../context/AuthContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { requestNotificationPermission } from '../utils/notifications';
+import { requestNotificationPermission, sendLocalNotification } from '../utils/notifications';
 import BackButton from '../components/BackButton';
+import api from '../services/api';
 
 // ─── Reusable menu row ────────────────────────────────────────────────────────
 function MenuRow({ iconName, iconColor, iconBg, label, sub, right, onPress, showBorder, colors }) {
@@ -79,7 +81,7 @@ export default function SettingsScreen() {
 
   const colors     = isDark ? Colors.dark : Colors.light;
   const navigation = useNavigation();
-  const { user, profile, avatarUri, updateProfileName, updateAvatar, signOut, authLoading } = useAuth();
+  const { user, profile, avatarUri, updateProfileName, updateAvatar, signOut, authLoading, resetPassword, verifyRecoveryOtp, updatePassword, signIn } = useAuth();
 
   // ── Local state ─────────────────────────────────────────────────────────────
   const [nameInput,    setNameInput]    = useState(profile?.full_name || '');
@@ -87,6 +89,19 @@ export default function SettingsScreen() {
   const [editing,      setEditing]      = useState(false);
   const [saveStatus,   setSaveStatus]   = useState('idle'); // idle | saving | saved
   const [uploadingPic, setUploadingPic] = useState(false);
+
+  // Reset Password State
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetStage, setResetStage] = useState('init'); // init, otp, new_password, success
+  const [resetCurrentPassword, setResetCurrentPassword] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [resetNewPassword, setResetNewPassword] = useState('');
+  const [resetConfirmPassword, setResetConfirmPassword] = useState('');
+  const [resetError, setResetError] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Animated values
   const savedAnim = useRef(new Animated.Value(0)).current;
@@ -223,6 +238,100 @@ export default function SettingsScreen() {
     }
   };
 
+  // ── Password Reset Logic ──────────────────────────────────────────────────────
+  const handleDirectPasswordUpdate = async () => {
+    setResetError('');
+    if (!resetCurrentPassword) {
+      setResetError('Please enter your current password.');
+      return;
+    }
+    if (resetNewPassword.length < 6) {
+      setResetError('New password must be at least 6 characters.');
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setResetError('Passwords do not match.');
+      return;
+    }
+    setIsResetting(true);
+    try {
+      const userEmail = user?.email || profile?.email || '';
+      await signIn({ email: userEmail, password: resetCurrentPassword });
+      await updatePassword(resetNewPassword);
+      setResetStage('success');
+    } catch (err) {
+      setResetError(err.message || 'Incorrect current password or update failed.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleInitiateReset = async () => {
+    setResetError('');
+    setIsResetting(true);
+    try {
+      await api.sendCustomOtp(user.email);
+      setResetStage('otp');
+    } catch (err) {
+      setResetError(err?.response?.data?.detail || err.message || 'Failed to send OTP.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setResetError('');
+    if (!resetOtp || resetOtp.trim().length !== 6) {
+      setResetError('Please enter a valid 6-digit OTP.');
+      return;
+    }
+    setIsResetting(true);
+    try {
+      await api.verifyCustomOtp(user.email, resetOtp.trim());
+      setResetStage('new_password');
+    } catch (err) {
+      setResetError(err?.response?.data?.detail || err.message || 'Invalid OTP. Please try again.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    setResetError('');
+    if (resetNewPassword.length < 6) {
+      setResetError('Password must be at least 6 characters.');
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setResetError('Passwords do not match.');
+      return;
+    }
+    setIsResetting(true);
+    try {
+      await updatePassword(resetNewPassword);
+      setResetStage('success');
+    } catch (err) {
+      setResetError(err.message || 'Failed to update password.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const closeResetModal = () => {
+    setResetModalVisible(false);
+    setTimeout(() => {
+      setResetStage('init');
+      setResetCurrentPassword('');
+      setResetOtp('');
+      setResetNewPassword('');
+      setResetConfirmPassword('');
+      setResetError('');
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
+    }, 300);
+  };
+
   // ── Logout ───────────────────────────────────────────────────────────────────
   const handleLogout = () => {
     const performLogout = async () => {
@@ -254,7 +363,7 @@ export default function SettingsScreen() {
   };
 
   // ── Derived ─────────────────────────────────────────────────────────
-  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'Guest User';
+  const displayName = profile?.full_name || user?.email?.split('@')[0] || 'User';
   const initials = displayName
     .split(' ')
     .map((w) => w[0])
@@ -303,9 +412,10 @@ export default function SettingsScreen() {
           <View style={styles.profileInfo}>
             <Text style={[styles.profileName, { color: colors.text }]}>{displayName}</Text>
             <Text style={[styles.profileEmail, { color: colors.textSecondary }]}>
-              {user?.email || 'guest@cybershield.local'}
+              {user?.email || profile?.email || ''}
             </Text>
           </View>
+
 
           <TouchableOpacity
             onPress={() => { setEditing((v) => !v); setSaveStatus('idle'); }}
@@ -355,6 +465,19 @@ export default function SettingsScreen() {
         </View>
       )}
 
+      {/* ── Account Security ─────────────────────────────────────── */}
+      <Section title="ACCOUNT SECURITY" colors={colors}>
+        <MenuRow
+          iconName="key-outline"
+          iconColor="#F59E0B"
+          iconBg={isDark ? '#451A03' : '#FEF3C7'}
+          label="Reset Password"
+          sub="Update your account password"
+          onPress={() => setResetModalVisible(true)}
+          colors={colors}
+        />
+      </Section>
+
       {/* ── Preferences ──────────────────────────────────────────── */}
       <Section title="PREFERENCES" colors={colors}>
         <MenuRow
@@ -394,6 +517,10 @@ export default function SettingsScreen() {
                     );
                     return;
                   }
+                  await sendLocalNotification(
+                    '🛡️ Scan Alerts Activated',
+                    'You will now receive real-time security threat notifications for incoming messages and scans.'
+                  );
                 }
                 setNotificationsEnabled(val);
               }}
@@ -424,6 +551,19 @@ export default function SettingsScreen() {
             colors={colors}
           />
         ))}
+      </Section>
+
+      {/* ── Admin Console ────────────────────────────────────────── */}
+      <Section title="ADMINISTRATOR" colors={colors}>
+        <MenuRow
+          iconName="shield-half-outline"
+          iconColor="#8B5CF6"
+          iconBg={isDark ? '#2E1065' : '#F3E8FF'}
+          label="Admin Control Panel"
+          sub="Manage threats, users, and security settings"
+          onPress={() => navigation.navigate('Admin')}
+          colors={colors}
+        />
       </Section>
 
       {/* ── About ───────────────────────────────────────────────── */}
@@ -464,6 +604,197 @@ export default function SettingsScreen() {
           )
         }
       </TouchableOpacity>
+
+      {/* ── Reset Password Modal ──────────────────────────────────────────────── */}
+      <Modal
+        visible={resetModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeResetModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card, borderColor: colors.border }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Reset Password</Text>
+              <TouchableOpacity onPress={closeResetModal}>
+                <Ionicons name="close" size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {resetError ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{resetError}</Text>
+              </View>
+            ) : null}
+
+            {resetStage === 'init' && (
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+                  Enter your current password to update immediately, or request an email OTP if you forgot it.
+                </Text>
+
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    value={resetCurrentPassword}
+                    onChangeText={setResetCurrentPassword}
+                    placeholder="Current Password"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showCurrentPassword}
+                    style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, paddingRight: 40 }]}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIconBtn}
+                    onPress={() => setShowCurrentPassword(!showCurrentPassword)}
+                  >
+                    <Ionicons name={showCurrentPassword ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    value={resetNewPassword}
+                    onChangeText={setResetNewPassword}
+                    placeholder="New Password"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showNewPassword}
+                    style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, paddingRight: 40 }]}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIconBtn}
+                    onPress={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    value={resetConfirmPassword}
+                    onChangeText={setResetConfirmPassword}
+                    placeholder="Confirm New Password"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showConfirmPassword}
+                    style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, paddingRight: 40 }]}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIconBtn}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: '#4361EE', marginTop: 4 }]}
+                  onPress={handleDirectPasswordUpdate}
+                  disabled={isResetting}
+                >
+                  {isResetting ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Update Password</Text>}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={{ marginTop: 8, alignItems: 'center', paddingVertical: 8 }}
+                  onPress={handleInitiateReset}
+                  disabled={isResetting}
+                >
+                  <Text style={{ color: '#4361EE', fontSize: 13, fontWeight: '600' }}>
+                    Forgot Current Password? Send Email OTP
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {resetStage === 'otp' && (
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+                  Enter the 6-digit OTP sent to your email.
+                </Text>
+                <TextInput
+                  value={resetOtp}
+                  onChangeText={setResetOtp}
+                  placeholder="Enter OTP"
+                  placeholderTextColor={colors.textMuted}
+                  style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface }]}
+                  keyboardType="numeric"
+                  maxLength={6}
+                />
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: '#4361EE' }]}
+                  onPress={handleVerifyOtp}
+                  disabled={isResetting}
+                >
+                  {isResetting ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Verify OTP</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {resetStage === 'new_password' && (
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalText, { color: colors.textSecondary }]}>
+                  Enter your new password.
+                </Text>
+
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    value={resetNewPassword}
+                    onChangeText={setResetNewPassword}
+                    placeholder="New Password"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showNewPassword}
+                    style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, paddingRight: 40 }]}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIconBtn}
+                    onPress={() => setShowNewPassword(!showNewPassword)}
+                  >
+                    <Ionicons name={showNewPassword ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    value={resetConfirmPassword}
+                    onChangeText={setResetConfirmPassword}
+                    placeholder="Confirm New Password"
+                    placeholderTextColor={colors.textMuted}
+                    secureTextEntry={!showConfirmPassword}
+                    style={[styles.modalInput, { color: colors.text, borderColor: colors.border, backgroundColor: colors.surface, paddingRight: 40 }]}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIconBtn}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: '#4361EE', marginTop: 12 }]}
+                  onPress={handleUpdatePassword}
+                  disabled={isResetting}
+                >
+                  {isResetting ? <ActivityIndicator color="#fff" /> : <Text style={styles.modalBtnText}>Update Password</Text>}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {resetStage === 'success' && (
+              <View style={styles.modalBody}>
+                <Ionicons name="checkmark-circle" size={48} color="#10B981" style={{ alignSelf: 'center', marginBottom: 12 }} />
+                <Text style={[styles.modalText, { color: colors.text, textAlign: 'center', fontWeight: 'bold' }]}>
+                  Password updated successfully!
+                </Text>
+                <TouchableOpacity
+                  style={[styles.modalBtn, { backgroundColor: '#10B981', marginTop: 16 }]}
+                  onPress={closeResetModal}
+                >
+                  <Text style={styles.modalBtnText}>Done</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
     </ScrollView>
   </View>
@@ -608,4 +939,47 @@ const styles = StyleSheet.create({
     color: '#4361EE',
     fontWeight: '600',
   },
+  
+  // Modal styles
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center', padding: 20,
+  },
+  modalContent: {
+    borderRadius: 16, borderWidth: 1, padding: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 12, elevation: 5,
+  },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700' },
+  modalBody: { gap: 12 },
+  modalText: { fontSize: 14, lineHeight: 20 },
+  modalInput: {
+    height: 48, borderRadius: 10, borderWidth: 1,
+    paddingHorizontal: 14, fontSize: 15,
+  },
+  passwordInputContainer: {
+    position: 'relative',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  eyeIconBtn: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  modalBtn: {
+    height: 48, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center', marginTop: 8,
+  },
+  modalBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  errorBox: {
+    backgroundColor: '#FEE2E2', padding: 12, borderRadius: 8, marginBottom: 16,
+    borderWidth: 1, borderColor: '#FCA5A5'
+  },
+  errorText: { color: '#EF4444', fontSize: 13, fontWeight: '500' },
 });

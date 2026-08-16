@@ -34,20 +34,12 @@ export default function Header({ title, subtitle, isDark = false, onBack, rightA
           <BackButton absolute={false} onPress={onBack} navigation={navigation} />
         )}
         <View style={styles.titleWrap}>
-          {subtitle ? (
-            <Text style={[styles.subtitle, { color: isDark ? '#00D4FF' : '#4361EE' }]} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          ) : null}
           <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
             {title}
           </Text>
         </View>
         {rightAction && <View>{rightAction}</View>}
       </View>
-
-      {/* Cyan accent line */}
-      <View style={[styles.accentLine, { backgroundColor: accentLine }]} />
     </View>
   );
 }

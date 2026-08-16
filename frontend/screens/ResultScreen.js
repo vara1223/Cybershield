@@ -11,11 +11,26 @@ import TextureBackground from '../components/TextureBackground';
 import { FEATURE_LABELS } from '../services/mockData';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+const FEATURE_ICONS = {
+  url_scan: 'link-outline',
+  otp_scan: 'chatbox-ellipses-outline',
+  upi_scan: 'card-outline',
+  qr_scan: 'qr-code-outline',
+  screenshot_scan: 'image-outline',
+  voice_scan: 'mic-outline',
+};
+
 export default function ResultScreen({ navigation }) {
   const isDark = useScanStore((s) => s.isDark);
   const result = useScanStore((s) => s.currentResult);
   const colors = isDark ? Colors.dark : Colors.light;
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (typeof document !== 'undefined' && document.activeElement) {
+      try { document.activeElement.blur(); } catch (e) {}
+    }
+  }, []);
 
   if (!result) {
     return (
@@ -37,12 +52,21 @@ export default function ResultScreen({ navigation }) {
 
   const transcript = result.raw?.transcript;
   const highlighted = result.raw?.highlighted_phrases || [];
-  const featureLabel = FEATURE_LABELS[result.feature] || result.feature;
+  const featureLabel = FEATURE_LABELS[result.feature] || result.feature || 'Security Scan';
+  const iconName = FEATURE_ICONS[result.feature] || 'shield-checkmark-outline';
+  const mlModelName = result.raw?.ml_model || result.ml_model || (result.raw?.stt_provider ? `Whisper STT (${result.raw.stt_provider})` : 'Trained Local ML Engine');
+  const classification = result.classification || result.raw?.classification || (result.verdict === 'DANGEROUS' ? 'Scam' : result.verdict === 'SUSPICIOUS' ? 'Suspicious' : 'Likely Safe');
+  const riskLevel = result.risk_level || result.raw?.risk_level || (result.confidence >= 60 ? 'High' : result.confidence >= 30 ? 'Medium' : 'Low');
+  const detectedIndicators = result.detected_indicators || result.raw?.detected_indicators || [];
+  const recommendedAction = result.recommended_action || result.raw?.recommended_action || (result.tips && result.tips[0]) || null;
+  const reasonText = result.reason || result.explanation;
+  const detectedCategory = result.category || result.raw?.Category || result.raw?.category || null;
+  const detectedLanguage = result.language || result.raw?.Language || result.raw?.language || null;
 
   async function handleShare() {
     try {
       await Share.share({
-        message: `CyberShield Report\nFeature: ${featureLabel}\nVerdict: ${result.verdict}\nConfidence: ${result.confidence}%\n\n${result.explanation}\n\nScan your own threats at cybershield.app`,
+        message: `CyberShield Threat Analysis Report\nClassification: ${classification}\nRisk Level: ${riskLevel}\nConfidence: ${result.confidence}%\n\nReason: ${reasonText}\n\nScan threats locally with CyberShield`,
       });
     } catch {}
   }
@@ -69,18 +93,19 @@ export default function ResultScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TextureBackground isDark={isDark} />
-      {/* Custom Header */}
+      {/* Custom Clean Header */}
       <View style={[styles.headerContainer, { paddingTop: insets.top + 4, borderBottomColor: colors.border }]}>
         <BackButton navigation={navigation} absolute={false} />
         <View style={styles.headerTitleWrap}>
-          <Text style={[styles.headerTitle, { color: verdictColor, fontFamily: Typography.bodyBold }]}>
+          <Text style={[styles.headerTitle, { color: colors.text, fontFamily: Typography.bodyBold }]}>
             Scan Result
           </Text>
-          {result.input_data && (
-            <Text style={[styles.headerSubtitle, { color: colors.textSecondary, fontFamily: Typography.mono }]} numberOfLines={1}>
-              {result.input_data.slice(0, 50)}
+          <View style={[styles.headerBadge, { backgroundColor: verdictColor + '15', borderColor: verdictColor + '30' }]}>
+            <Ionicons name={iconName} size={12} color={verdictColor} />
+            <Text style={[styles.headerBadgeText, { color: verdictColor }]}>
+              {featureLabel.toUpperCase()} REPORT
             </Text>
-          )}
+          </View>
         </View>
       </View>
 
@@ -88,6 +113,22 @@ export default function ResultScreen({ navigation }) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
+        {/* Classification & Risk Level Badges Row */}
+        <View style={styles.metricsRow}>
+          <View style={[styles.metricPill, { backgroundColor: verdictColor + '18', borderColor: verdictColor + '35' }]}>
+            <Text style={[styles.metricPillLabel, { color: colors.textSecondary }]}>Classification:</Text>
+            <Text style={[styles.metricPillVal, { color: verdictColor }]}>{classification}</Text>
+          </View>
+          <View style={[styles.metricPill, { backgroundColor: verdictColor + '18', borderColor: verdictColor + '35' }]}>
+            <Text style={[styles.metricPillLabel, { color: colors.textSecondary }]}>Risk Level:</Text>
+            <Text style={[styles.metricPillVal, { color: verdictColor }]}>{riskLevel}</Text>
+          </View>
+          <View style={[styles.metricPill, { backgroundColor: verdictColor + '18', borderColor: verdictColor + '35' }]}>
+            <Text style={[styles.metricPillLabel, { color: colors.textSecondary }]}>Confidence:</Text>
+            <Text style={[styles.metricPillVal, { color: verdictColor }]}>{result.confidence}%</Text>
+          </View>
+        </View>
+
         {/* Score Arc with Glowing Card */}
         <View style={[styles.arcSection, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
           <ConfidenceArc
@@ -97,7 +138,7 @@ export default function ResultScreen({ navigation }) {
             isDark={isDark}
           />
           <Text style={[styles.scanLabel, { color: verdictColor }]}>
-            CONFIDENCE RATING
+            THREAT RISK CONFIDENCE
           </Text>
         </View>
 
@@ -115,34 +156,122 @@ export default function ResultScreen({ navigation }) {
               color="#fff"
             />
             <Text style={styles.verdictText}>
-              {result.verdict === 'SAFE'
-                ? 'SECURE · No threat detected'
-                : result.verdict === 'SUSPICIOUS' || result.verdict === 'MODERATE'
-                ? 'CAUTION · Moderate threat risk'
-                : 'DANGER · High security risk'}
+              {`${classification.toUpperCase()} · ${riskLevel.toUpperCase()} RISK`}
             </Text>
           </View>
           <Text style={styles.verdictSub}>
-            {result.verdict === 'SAFE'
-              ? 'Our analysis engine scanned the payload and found no malicious patterns.'
-              : result.verdict === 'SUSPICIOUS' || result.verdict === 'MODERATE'
-              ? 'Suspicious elements were detected. Do not click links or share details.'
-              : 'Critical security risk. Highly recommended to delete and block contact.'}
+            {reasonText}
           </Text>
+
+          {(detectedCategory || detectedLanguage) && (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+              {detectedLanguage && (
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="language-outline" size={13} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', fontFamily: Typography.monoBold }}>
+                    {`LANG: ${detectedLanguage.toUpperCase()}`}
+                  </Text>
+                </View>
+              )}
+              {detectedCategory && (
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons name="pricetag-outline" size={13} color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', fontFamily: Typography.monoBold }}>
+                    {`CATEGORY: ${detectedCategory.toUpperCase()}`}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
         </LinearGradient>
 
-        {/* Explanation Card */}
+        {/* Voice Recording Preview Player */}
+        {result.feature === 'voice_scan' && (result.audioUri || result.raw?.audioUri) && (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="volume-high-outline" size={18} color={verdictColor} />
+              <Text style={[styles.cardTitle, { color: verdictColor }]}>
+                VOICE RECORDING PREVIEW
+              </Text>
+            </View>
+            <View style={{ marginTop: 8, width: '100%', alignItems: 'center' }}>
+              <audio src={result.audioUri || result.raw?.audioUri} controls style={{ width: '100%', height: 40 }} />
+            </View>
+          </View>
+        )}
+
+        {/* Dedicated Scanned Target / Payload Card */}
+        {result.input_data ? (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="finger-print-outline" size={18} color={verdictColor} />
+              <Text style={[styles.cardTitle, { color: verdictColor }]}>
+                {result.feature === 'voice_scan' ? 'AUDIO TRANSCRIPT' : 'EXTRACTED TEXT / PAYLOAD'}
+              </Text>
+            </View>
+
+            <View style={[styles.payloadBox, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: colors.border }]}>
+              <Text style={[styles.payloadText, { color: colors.text }]}>
+                {result.input_data}
+              </Text>
+            </View>
+
+            {mlModelName ? (
+              <View style={[styles.mlChip, { backgroundColor: isDark ? '#1E293B' : '#EDF2F7', borderColor: colors.border }]}>
+                <Ionicons name="hardware-chip-outline" size={13} color={colors.primary} />
+                <Text style={[styles.mlChipText, { color: colors.textSecondary }]}>
+                  {`Local AI Engine: `}<Text style={{ color: colors.text, fontWeight: '700' }}>{mlModelName}</Text>
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
+
+        {/* Detected Scam Indicators Card */}
+        {detectedIndicators && detectedIndicators.length > 0 && (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="alert-circle-outline" size={18} color={verdictColor} />
+              <Text style={[styles.cardTitle, { color: verdictColor }]}>
+                DETECTED SCAM INDICATORS
+              </Text>
+            </View>
+            {detectedIndicators.map((ind, idx) => (
+              <View key={idx} style={styles.indicatorRow}>
+                <Ionicons name="warning-outline" size={15} color={verdictColor} style={{ marginTop: 2 }} />
+                <Text style={[styles.indicatorText, { color: colors.text }]}>{ind}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Explanation / Reason Card */}
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
           <View style={styles.cardHeader}>
             <Ionicons name="bulb-outline" size={18} color={verdictColor} />
             <Text style={[styles.cardTitle, { color: verdictColor }]}>
-              ANALYSIS EXPLANATION
+              REASON & ANALYSIS
             </Text>
           </View>
           <Text style={[styles.explanation, { color: colors.text }]}>
-            {result.explanation}
+            {reasonText}
           </Text>
         </View>
+
+        {/* Recommended Action Card */}
+        {recommendedAction && (
+          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={verdictColor} />
+              <Text style={[styles.cardTitle, { color: verdictColor }]}>
+                RECOMMENDED SAFE ACTION
+              </Text>
+            </View>
+            <Text style={[styles.explanation, { color: colors.text }]}>
+              {recommendedAction}
+            </Text>
+          </View>
+        )}
 
         {/* Transcript (voice scan only) */}
         {transcript && !transcript.startsWith('[') && (
@@ -310,13 +439,90 @@ const styles = StyleSheet.create({
   },
   headerTitleWrap: {
     flex: 1,
-    gap: 1,
+    flexDirection: 'column',
+    gap: 3,
   },
   headerTitle: {
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '800',
   },
-  headerSubtitle: {
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  headerBadgeText: {
+    fontSize: 10,
+    fontFamily: Typography.monoBold,
+    letterSpacing: 0.8,
+    fontWeight: '700',
+  },
+  payloadBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    marginTop: 2,
+  },
+  payloadText: {
+    fontSize: 13,
+    fontFamily: Typography.mono,
+    lineHeight: 18,
+  },
+  mlChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 4,
+  },
+  mlChipText: {
+    fontSize: 11,
+    fontFamily: Typography.bodyMedium,
+  },
+  metricsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  metricPill: {
+    flex: 1,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  metricPillLabel: {
+    fontSize: 10,
+    fontFamily: Typography.mono,
+  },
+  metricPillVal: {
     fontSize: 12,
+    fontFamily: Typography.bodyBold,
+    fontWeight: '800',
+  },
+  indicatorRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingTop: 4,
+  },
+  indicatorText: {
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 19,
+    fontFamily: Typography.bodyMedium,
   },
 });
