@@ -1,16 +1,16 @@
 services:
   - type: web
     name: cybershield-backend
-    env: python
+    runtime: python
     buildCommand: pip install -r backend/requirements.txt
     startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
-    disk:
-      name: cybershield-db
-      mountPath: /data
-      sizeGB: 1
+    healthCheckPath: /health
+    plan: free
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
       - key: DATABASE_URL
-        value: sqlite:////data/cybershield.db
+        value: sqlite:///./cybershield.db
       - key: ALLOWED_ORIGINS
         value: "*"
       - key: SECRET_KEY
@@ -18,4 +18,10 @@ services:
       - key: ADMIN_API_KEY
         sync: false
       - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
         sync: false

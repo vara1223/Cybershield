@@ -31,8 +31,9 @@ if not _ADMIN_KEY:
     )
 
 # ── CORS — restrict to known origins ──────────────────────────────────────────
-_RAW_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8081,http://localhost:3000,http://localhost:19006")
+_RAW_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
 ALLOWED_ORIGINS = [o.strip() for o in _RAW_ORIGINS.split(",") if o.strip()]
+_ALLOW_ALL_ORIGINS = "*" in ALLOWED_ORIGINS or not ALLOWED_ORIGINS
 
 # ── Rate limiter ────────────────────────────────────────────────────────────────
 limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
@@ -89,14 +90,24 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.[1-3]\d\.\d+\.\d+)(:\d+)?",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+if _ALLOW_ALL_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.[1-3]\d\.\d+\.\d+)(:\d+)?",
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
 
 # ── Routers ────────────────────────────────────────────────────────────────────
 app.include_router(url.router,        prefix="/analyze")
