@@ -367,6 +367,8 @@ export default function VoiceScanScreen({ navigation }) {
   }
 
   const startRecording = IS_WEB ? startRecordingWeb : startRecordingNative;
+  const [audioFileName, setAudioFileName] = useState(null);
+
   const stopRecording = IS_WEB ? stopRecordingWeb : stopRecordingNative;
 
   async function handleUpload() {
@@ -378,11 +380,13 @@ export default function VoiceScanScreen({ navigation }) {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*' });
       if (!result.canceled && result.assets?.[0]) {
-        setRecordingUri(result.assets[0].uri);
+        const asset = result.assets[0];
+        setRecordingUri(asset.uri);
+        setAudioFileName(asset.name || 'uploaded_audio');
         setTranscript(null);
         setAnalysisVerdict(null);
         setDuration(0);
-        Alert.alert('Audio loaded', 'Audio file selected successfully. Tap Analyze to begin transcription.');
+        Alert.alert('Audio loaded', `Loaded "${asset.name || 'Audio file'}". Tap Analyze Now to begin transcription & scam detection.`);
       }
     } catch (e) {
       Alert.alert('Error picking document', e.message);
@@ -393,12 +397,13 @@ export default function VoiceScanScreen({ navigation }) {
     const file = e.target.files?.[0];
     if (file) {
       webAudioBlobRef.current = file;
+      setAudioFileName(file.name);
       const url = URL.createObjectURL(file);
       setRecordingUri(url);
       setTranscript(null);
       setAnalysisVerdict(null);
       setDuration(0);
-      Alert.alert('Audio loaded', 'Audio file selected successfully. Tap Analyze to begin transcription.');
+      Alert.alert('Audio loaded', `Loaded "${file.name}". Tap Analyze Now to begin transcription & scam detection.`);
     }
   };
 
@@ -422,7 +427,7 @@ export default function VoiceScanScreen({ navigation }) {
     const clientTranscript = (liveTranscriptRef.current || transcript || '').trim() || null;
 
     if (audioBlob) {
-      console.log(`[VOICE] Audio blob ready: ${audioBlob.size}B type=${audioBlob.type}`);
+      console.log(`[VOICE] Audio blob ready: ${audioBlob.size}B type=${audioBlob.type} name=${audioBlob.name || audioFileName || ''}`);
     } else if (audioUri) {
       console.log(`[VOICE] Audio URI: ${audioUri}`);
     }
@@ -446,8 +451,11 @@ export default function VoiceScanScreen({ navigation }) {
 
     setLoading(true);
     try {
-      const format = IS_WEB ? 'webm' : 'm4a';
-      const res = await api.analyzeVoice(audioSource, format, clientTranscript, selectedLanguage);
+      const rawName = audioBlob?.name || audioFileName || (audioUri ? audioUri.split('/').pop()?.split('?')[0] : null);
+      const ext = rawName && rawName.includes('.') ? rawName.split('.').pop().toLowerCase() : (IS_WEB ? 'webm' : 'm4a');
+      const format = ext || (IS_WEB ? 'webm' : 'm4a');
+
+      const res = await api.analyzeVoice(audioSource, format, clientTranscript, selectedLanguage, rawName);
 
       // Normalize result shape
       if (!res.input_data) {
@@ -490,7 +498,7 @@ export default function VoiceScanScreen({ navigation }) {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <TextureBackground isDark={isDark} />
-      {loading && <ScanLineLoader isDark={isDark} label="Transcribing call with Whisper..." />}
+      {loading && <ScanLineLoader isDark={isDark} label="Extracting text with Whisper AI and analyzing..." />}
       <Header
         title="Voice Scanner"
         subtitle="Record or upload audio to spot scams"
@@ -678,7 +686,7 @@ export default function VoiceScanScreen({ navigation }) {
             >
               <Ionicons name="shield-checkmark" size={18} color="#fff" />
               <Text style={styles.actionBtnTextWhite}>
-                {isRecording ? 'Stop & Analyze' : 'Analyze Now'}
+                {isRecording ? 'Stop & Analyze' : (recordingUri ? 'Extract Text & Analyze' : 'Analyze Now')}
               </Text>
             </LinearGradient>
           </TouchableOpacity>

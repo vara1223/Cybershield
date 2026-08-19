@@ -8,7 +8,7 @@ from models.scan_log import ScanLog
 from services.upi_analyzer import analyze_upi
 from utils.tips import get_tips
 from schemas.responses import ScanResponse
-from main import limiter
+from limiter import limiter
 
 router = APIRouter()
 

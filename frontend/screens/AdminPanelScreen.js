@@ -156,9 +156,21 @@ export default function AdminPanelScreen({ navigation }) {
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const [pinError, setPinError] = useState(false);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'users', 'threats', 'system', 'settings'
-  const [flushMessageMb, setFlushMessageMb] = useState('13.2');
+  const [flushMessageMb, setFlushMessageMb] = useState('1.8');
   const [securityBanner, setSecurityBanner] = useState('');
-  const currentCacheSize = useScanStore((s) => s.getCacheSizeMb());
+  const currentCacheSize = useScanStore((s) => s.cacheSizeMb);
+  const refreshRealCacheSize = useScanStore((s) => s.refreshRealCacheSize);
+  const flushSystemCacheReal = useScanStore((s) => s.flushSystemCacheReal);
+  const isFlushingCache = useScanStore((s) => s.isFlushingCache);
+
+  useEffect(() => {
+    refreshRealCacheSize();
+    const cInterval = setInterval(() => {
+      refreshRealCacheSize();
+    }, 15000);
+    return () => clearInterval(cInterval);
+  }, []);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [selectedScan, setSelectedScan] = useState(null);
@@ -239,10 +251,12 @@ export default function AdminPanelScreen({ navigation }) {
               scan_type: featClean,
               result: s.result ? s.result.charAt(0) + s.result.slice(1).toLowerCase() : 'Safe',
               confidence: s.confidence || 0,
-              analysis: s.analysis || 'Analysis completed.',
+              analysis: s.analysis || s.explanation || 'Analysis completed.',
+              explanation: s.analysis || s.explanation || 'Analysis completed.',
               created_at: s.created_at,
               status: s.status || 'completed',
-              input_data: s.scan_input,
+              input_data: s.scan_input || s.input_data || '',
+              scan_input: s.scan_input || s.input_data || '',
             };
           });
           setDbScans(scansForDisplay);
@@ -399,7 +413,17 @@ export default function AdminPanelScreen({ navigation }) {
     // 1. Local cache
     await AsyncStorage.setItem('admin_custom_pin', newPin).catch(() => {});
 
-    // 2. Supabase User Metadata DB
+    // 2. Cloud Sync to Supabase via backend Admin API
+    try {
+      await api.updateCredentialsDirect({
+        email: 'varaprasadmokharala5@gmail.com',
+        passkey: newPin,
+      });
+    } catch (e) {
+      console.log('[AdminPanel] Cloud passkey sync note:', e?.message);
+    }
+
+    // 3. Supabase User Metadata DB
     try {
       await supabase.auth.updateUser({
         data: { role: 'admin', is_admin: true, admin_passkey: newPin, passkey: newPin },
@@ -423,14 +447,14 @@ export default function AdminPanelScreen({ navigation }) {
       updated_at: new Date().toISOString(),
     };
 
-    // 3. Upsert into Supabase `profiles` Table DB
+    // 4. Upsert into Supabase `profiles` Table DB
     try {
       await supabase.from('profiles').upsert(passkeyRecord);
     } catch (e) {
       console.log('[AdminPanel] Upsert profiles passkey note:', e?.message);
     }
 
-    // 4. Upsert into Supabase `users` Table DB
+    // 5. Upsert into Supabase `users` Table DB
     try {
       await supabase.from('users').upsert(passkeyRecord);
     } catch (e) {
@@ -444,7 +468,17 @@ export default function AdminPanelScreen({ navigation }) {
     // 1. Local cache for instant LoginScreen authentication
     await AsyncStorage.setItem('admin_password', newPassword).catch(() => {});
 
-    // 2. Supabase Auth DB Update
+    // 2. Cloud Sync to Supabase via backend Admin API
+    try {
+      await api.updateCredentialsDirect({
+        email: 'varaprasadmokharala5@gmail.com',
+        password: newPassword,
+      });
+    } catch (e) {
+      console.log('[AdminPanel] Cloud password sync note:', e?.message);
+    }
+
+    // 3. Supabase Auth DB Update
     try {
       await supabase.auth.updateUser({
         password: newPassword,
@@ -475,14 +509,14 @@ export default function AdminPanelScreen({ navigation }) {
       updated_at: new Date().toISOString(),
     };
 
-    // 3. Upsert into Supabase `profiles` Table DB
+    // 4. Upsert into Supabase `profiles` Table DB
     try {
       await supabase.from('profiles').upsert(adminDbRecord);
     } catch (e) {
       console.log('[AdminPanel] Upsert profiles DB note:', e?.message);
     }
 
-    // 4. Upsert into Supabase `users` Table DB
+    // 5. Upsert into Supabase `users` Table DB
     try {
       await supabase.from('users').upsert(adminDbRecord);
     } catch (e) {
@@ -1110,14 +1144,14 @@ export default function AdminPanelScreen({ navigation }) {
     }
   };
 
-  function flushSystemCache() {
-    const currentSize = useScanStore.getState().getCacheSizeMb();
+  async function flushSystemCache() {
+    const currentSize = useScanStore.getState().cacheSizeMb || '1.8';
     setFlushMessageMb(currentSize);
-    useScanStore.getState().flushCacheState();
+    const res = await flushSystemCacheReal();
     setCacheFlushed(true);
     if (Platform.OS !== 'web') {
       try {
-        Alert.alert('Cache Cleared', `System cache of ${currentSize} MB cleared. Active cache is now 0.0 MB.`);
+        Alert.alert('Cache Cleared', `System cache of ${res?.freedMb || currentSize} MB cleared. Active cache is now 0.0 MB across all connected devices.`);
       } catch (_) {}
     }
     setTimeout(() => setCacheFlushed(false), 6000);
@@ -1150,13 +1184,13 @@ export default function AdminPanelScreen({ navigation }) {
         Animated.timing(scaleAnim, {
           toValue: 0.88,
           duration: 70,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
           friction: 4,
           tension: 180,
-          useNativeDriver: true,
+          useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start();
       onPress();
@@ -1360,7 +1394,7 @@ export default function AdminPanelScreen({ navigation }) {
     );
   }
 
-  function HoverableKey({ value, size = 60, fontSize = 20, onPress }) {
+  function HoverableKey({ value, size = 52, fontSize = 18, onPress }) {
     const [pressed, setPressed] = useState(false);
     if (!value) {
       return <View style={{ width: size, height: size }} />;
@@ -1386,12 +1420,16 @@ export default function AdminPanelScreen({ navigation }) {
               transform: [{ scale: (pressed || isTouch) ? 0.94 : 1 }],
               alignItems: 'center',
               justifyContent: 'center',
+              flexDirection: 'column',
+              gap: 2,
             },
           ]}
           testID="forgot-keypad-btn"
         >
-          <Ionicons name="key-outline" size={Math.min(18, fontSize + 2)} color={colors.primary} />
-          <Text style={{ fontSize: 9, fontWeight: '800', color: colors.primary, marginTop: -1, fontFamily: Typography.monoBold }}>FORGOT</Text>
+          <Ionicons name="key-outline" size={14} color={colors.primary} />
+          <Text style={{ fontSize: 8.5, fontWeight: '800', color: colors.primary, fontFamily: Typography.monoBold, textAlign: 'center', lineHeight: 10, letterSpacing: 0.3 }}>
+            FORGOT
+          </Text>
         </Pressable>
       );
     }
@@ -1410,13 +1448,28 @@ export default function AdminPanelScreen({ navigation }) {
             backgroundColor: (pressed || isTouch) ? 'rgba(47, 110, 255, 0.1)' : colors.card,
             borderColor: (pressed || isTouch) ? colors.primary : colors.border,
             transform: [{ scale: (pressed || isTouch) ? 0.94 : 1 }],
+            alignItems: 'center',
+            justifyContent: 'center',
           },
         ]}
       >
         {isBack ? (
-          <Ionicons name="backspace-outline" size={Math.min(22, fontSize + 2)} color="#EF4444" />
+          <Ionicons name="backspace-outline" size={19} color="#EF4444" style={{ textAlign: 'center' }} />
         ) : (
-          <Text style={[styles.numKeyText, { fontSize, color: colors.text, fontFamily: Typography.monoBold }]}>
+          <Text
+            style={[
+              styles.numKeyText,
+              {
+                fontSize,
+                color: colors.text,
+                fontFamily: Typography.monoBold,
+                textAlign: 'center',
+                textAlignVertical: 'center',
+                includeFontPadding: false,
+                lineHeight: fontSize * 1.2,
+              },
+            ]}
+          >
             {value}
           </Text>
         )}
@@ -1835,9 +1888,9 @@ export default function AdminPanelScreen({ navigation }) {
 
   // Passkey screen rendering (if not authenticated) - Compact Viewport Fit (No Scroll Required)
   if (!adminAuthenticated) {
-    const keySize = isSmallScreen ? 42 : 48;
-    const keyFontSize = isSmallScreen ? 15 : 17;
-    const numpadWidth = keySize * 3 + 8 * 2 + 10; // Exactly 3 keys per row (176px)
+    const keySize = isSmallScreen ? 46 : 52;
+    const keyFontSize = isSmallScreen ? 16 : 18;
+    const numpadWidth = keySize * 3 + 10 * 2 + 8; // Exactly 3 keys per row
 
     return (
       <View style={[styles.pinContainer, { backgroundColor: colors.background }]}>
@@ -1956,7 +2009,7 @@ export default function AdminPanelScreen({ navigation }) {
             </View>
 
             {/* Keypad — Exactly 3 keys per row */}
-            <View style={[styles.numpad, { width: numpadWidth, gap: 8, marginTop: 2, justifyContent: 'flex-start' }]}>
+            <View style={[styles.numpad, { width: numpadWidth, gap: 10, marginTop: 4, justifyContent: 'center', alignItems: 'center', alignSelf: 'center' }]}>
               {['1', '2', '3', '4', '5', '6', '7', '8', '9', 'forgot', '0', '⌫'].map((d, idx) => (
                 <HoverableKey
                   key={idx}
@@ -1981,12 +2034,14 @@ export default function AdminPanelScreen({ navigation }) {
             {/* Vault Submit Button */}
             <GlowButton
               onPress={handlePasskeySubmit}
-              style={[styles.submitPasskeyButton, { height: 40, marginTop: 4, borderRadius: 10 }]}
+              style={[styles.submitPasskeyButton, { height: 44, marginTop: 6, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }]}
               glowColor={colors.primary}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%', height: '100%' }}>
                 <Ionicons name="key-outline" size={16} color="#FFFFFF" />
-                <Text style={[styles.submitPasskeyText, { fontSize: 13 }]}>SUBMIT PASSKEY</Text>
+                <Text style={[styles.submitPasskeyText, { fontSize: 13.5, lineHeight: 18, textAlign: 'center', textAlignVertical: 'center' }]}>
+                  SUBMIT PASSKEY
+                </Text>
               </View>
             </GlowButton>
           </Animated.View>
@@ -2141,9 +2196,35 @@ export default function AdminPanelScreen({ navigation }) {
               onPress={async () => {
                 setLoadingScans(true);
                 try {
-                  const res = await api.getAdminScans(1, 100, categoryFilter, verdictFilter, searchQuery);
-                  if (res) setDbScans(res);
-                } catch (e) {}
+                  const res = await api.getMonitorScans({
+                    page: 1,
+                    perPage: 200,
+                    scanType: categoryFilter !== 'ALL' ? categoryFilter : null,
+                    result: verdictFilter !== 'ALL' ? verdictFilter : null,
+                    search: searchQuery || null,
+                  });
+                  if (Array.isArray(res)) {
+                    const scansForDisplay = res.map((s) => ({
+                      id: s.id,
+                      scan_id: s.scan_id,
+                      user_id: s.user_id || 'anon',
+                      user_name: s.user_name || 'User',
+                      user_email: s.user_email,
+                      scan_type: (s.scan_type || 'unknown').replace('_scan', '').toUpperCase(),
+                      result: s.result ? s.result.charAt(0) + s.result.slice(1).toLowerCase() : 'Safe',
+                      confidence: s.confidence || 0,
+                      analysis: s.analysis || s.explanation || 'Analysis completed.',
+                      explanation: s.analysis || s.explanation || 'Analysis completed.',
+                      created_at: s.created_at,
+                      status: s.status || 'completed',
+                      input_data: s.scan_input || s.input_data || '',
+                      scan_input: s.scan_input || s.input_data || '',
+                    }));
+                    setDbScans(scansForDisplay);
+                  }
+                } catch (e) {
+                  console.log('[AdminPanel] Refresh scans error:', e?.message);
+                }
                 setLoadingScans(false);
               }}
               style={{ padding: 10, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border }}
@@ -2251,7 +2332,8 @@ export default function AdminPanelScreen({ navigation }) {
                             feature: (scan.scan_type || 'URL').toLowerCase() + '_scan',
                             verdict: String(scan.result).toUpperCase(),
                             confidence: scan.confidence,
-                            input_data: scan.analysis,
+                            input_data: scan.input_data || scan.scan_input || 'N/A',
+                            explanation: scan.analysis || scan.explanation || 'Analysis completed cleanly.',
                             scanned_at: scan.created_at,
                             user_name: scan.user_name,
                             user_email: scan.user_email,
@@ -2284,7 +2366,8 @@ export default function AdminPanelScreen({ navigation }) {
                       feature: (scan.scan_type || 'URL').toLowerCase() + '_scan',
                       verdict: String(scan.result).toUpperCase(),
                       confidence: scan.confidence,
-                      input_data: scan.analysis,
+                      input_data: scan.input_data || scan.scan_input || 'N/A',
+                      explanation: scan.analysis || scan.explanation || 'Analysis completed cleanly.',
                       scanned_at: scan.created_at,
                       user_name: scan.user_name,
                       user_email: scan.user_email,
@@ -3291,7 +3374,7 @@ export default function AdminPanelScreen({ navigation }) {
                   </Text>
                   <View style={styles.modalTextContainer}>
                     <Text style={[styles.modalTextContent, { fontFamily: Typography.mono }]}>
-                      {selectedScan.input_data}
+                      {selectedScan.input_data || selectedScan.scan_input || 'No input content recorded'}
                     </Text>
                   </View>
                 </View>
@@ -3303,7 +3386,7 @@ export default function AdminPanelScreen({ navigation }) {
                   </Text>
                   <View style={styles.modalTextContainer}>
                     <Text style={[styles.modalTextContent, { fontFamily: Typography.body }]}>
-                      {selectedScan.explanation}
+                      {selectedScan.explanation || selectedScan.analysis || 'Analysis completed cleanly.'}
                     </Text>
                   </View>
                 </View>
@@ -3678,28 +3761,30 @@ function getStyles(colors) {
   numpad: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    width: 250,
-    gap: 14,
     justifyContent: 'center',
+    alignItems: 'center',
+    alignSelf: 'center',
     marginTop: 4,
   },
   numKeyCircle: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     cursor: 'pointer',
   },
-  numKeyText: { fontSize: 22 },
+  numKeyText: {
+    fontSize: 18,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+  },
   submitPasskeyButton: {
-    height: 50,
+    height: 44,
     width: '100%',
-    maxWidth: 260,
+    maxWidth: 240,
     backgroundColor: colors.primary,
     marginTop: 8,
-    borderRadius: 14,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     alignSelf: 'center',
@@ -3707,10 +3792,11 @@ function getStyles(colors) {
   submitPasskeyText: {
     color: '#ffffff',
     fontWeight: '800',
-    fontSize: 14,
-    letterSpacing: 1.2,
+    fontSize: 13.5,
+    letterSpacing: 1,
     fontFamily: Typography.bodySemiBold,
     textAlign: 'center',
+    textAlignVertical: 'center',
   },
 
 

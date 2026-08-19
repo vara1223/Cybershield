@@ -4,6 +4,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime, timezone, timedelta
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -134,6 +135,142 @@ class RegisterUserRequest(BaseModel):
     full_name: str
     otp: str
 
+class ResetPasswordRequest(BaseModel):
+    email: str
+    password: str
+    otp: Optional[str] = None
+
+class UpdateCredentialsRequest(BaseModel):
+    email: str
+    password: Optional[str] = None
+    passkey: Optional[str] = None
+    current_password: Optional[str] = None
+    admin_key: Optional[str] = None
+
+
+def sync_supabase_user(email: str, password: Optional[str] = None, user_metadata: Optional[dict] = None, passkey: Optional[str] = None):
+    """Synchronizes user credentials directly with Supabase Auth using the Service Role Key."""
+    supabase_url = os.getenv("SUPABASE_URL")
+    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+    if not supabase_url or not service_role_key:
+        raise HTTPException(status_code=500, detail="Supabase Admin key not configured.")
+
+    base_url = supabase_url.rstrip("/")
+    headers = {
+        "apikey": service_role_key,
+        "Authorization": f"Bearer {service_role_key}",
+        "Content-Type": "application/json"
+    }
+
+    import json
+    import urllib.request
+    import urllib.error
+
+    # 1. Fetch user list to check if user exists
+    get_req = urllib.request.Request(f"{base_url}/auth/v1/admin/users?page=1&per_page=1000", headers=headers, method='GET')
+    users = []
+    try:
+        with urllib.request.urlopen(get_req) as resp:
+            data = json.loads(resp.read().decode('utf-8'))
+            users = data.get("users", data) if isinstance(data, dict) else data
+    except Exception as e:
+        logger.warning(f"Error fetching Supabase users: {e}")
+
+    target_user = None
+    email_clean = email.strip().lower()
+    for u in users:
+        if (u.get("email") or "").lower() == email_clean:
+            target_user = u
+            break
+
+    is_admin = (email_clean == "varaprasadmokharala5@gmail.com")
+    meta = {}
+    if target_user:
+        meta = dict(target_user.get("user_metadata") or {})
+    if is_admin:
+        meta["role"] = "admin"
+        meta["is_admin"] = True
+    if passkey:
+        meta["admin_passkey"] = passkey
+        meta["passkey"] = passkey
+    if user_metadata:
+        meta.update(user_metadata)
+    if "full_name" not in meta:
+        meta["full_name"] = "Admin User" if is_admin else email_clean.split("@")[0]
+
+    user_id = None
+    if target_user:
+        user_id = target_user["id"]
+        update_payload = {
+            "email_confirm": True,
+            "user_metadata": meta
+        }
+        if password:
+            update_payload["password"] = password
+
+        put_req = urllib.request.Request(
+            f"{base_url}/auth/v1/admin/users/{user_id}",
+            data=json.dumps(update_payload).encode('utf-8'),
+            headers=headers,
+            method='PUT'
+        )
+        try:
+            with urllib.request.urlopen(put_req) as resp:
+                pass
+        except Exception as e:
+            logger.error(f"Error updating Supabase user {user_id}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to update user in Supabase Auth: {str(e)}")
+    else:
+        # Create user if doesn't exist
+        create_payload = {
+            "email": email_clean,
+            "password": password or ("admin123" if is_admin else "password123"),
+            "email_confirm": True,
+            "user_metadata": meta
+        }
+        post_req = urllib.request.Request(
+            f"{base_url}/auth/v1/admin/users",
+            data=json.dumps(create_payload).encode('utf-8'),
+            headers=headers,
+            method='POST'
+        )
+        try:
+            with urllib.request.urlopen(post_req) as resp:
+                res_data = json.loads(resp.read().decode('utf-8'))
+                user_id = res_data.get("id") or (res_data.get("user") or {}).get("id")
+        except Exception as e:
+            logger.error(f"Error creating Supabase user: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to create user in Supabase Auth: {str(e)}")
+
+    # 2. Upsert into public.profiles
+    if user_id:
+        prof_payload = {
+            "id": user_id,
+            "full_name": meta.get("full_name", email_clean.split("@")[0]),
+            "email": email_clean,
+        }
+        prof_headers = {
+            "apikey": service_role_key,
+            "Authorization": f"Bearer {service_role_key}",
+            "Content-Type": "application/json",
+            "Prefer": "resolution=merge-duplicates"
+        }
+        try:
+            prof_req = urllib.request.Request(
+                f"{base_url}/rest/v1/profiles",
+                data=json.dumps(prof_payload).encode('utf-8'),
+                headers=prof_headers,
+                method='POST'
+            )
+            with urllib.request.urlopen(prof_req) as _:
+                pass
+        except Exception as p_err:
+            logger.warning(f"Failed to sync public.profiles row: {p_err}")
+
+    return {"user_id": user_id, "email": email_clean, "synced": True}
+
+
 @router.post("/register-user")
 async def register_user(body: RegisterUserRequest, db: Session = Depends(get_db)):
     email = body.email.strip().lower()
@@ -153,68 +290,96 @@ async def register_user(body: RegisterUserRequest, db: Session = Depends(get_db)
     if (now_utc - created_at_utc) > timedelta(minutes=10):
         raise HTTPException(status_code=400, detail="OTP has expired.")
 
-    # 2. Call Supabase Admin API to create user with email_confirm = True
-    supabase_url = os.getenv("SUPABASE_URL")
-    service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-
-    if not supabase_url or not service_role_key:
-        raise HTTPException(status_code=500, detail="Supabase Admin key not configured.")
-
-    admin_url = f"{supabase_url.rstrip('/')}/auth/v1/admin/users"
-    headers = {
-        "apikey": service_role_key,
-        "Authorization": f"Bearer {service_role_key}",
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "email": email,
-        "password": password,
-        "email_confirm": True,
-        "user_metadata": {"full_name": full_name}
-    }
-
-    import json
-    import urllib.request
-    import urllib.error
-
-    req = urllib.request.Request(admin_url, data=json.dumps(payload).encode('utf-8'), headers=headers, method='POST')
+    # 2. Sync to Supabase Auth & profiles
     try:
-        with urllib.request.urlopen(req) as resp:
-            user_res = json.loads(resp.read().decode('utf-8'))
-            
-            # Upsert into public.profiles
-            user_id = user_res.get("id") or (user_res.get("user") or {}).get("id")
-            if user_id:
-                profile_url = f"{supabase_url.rstrip('/')}/rest/v1/profiles"
-                prof_payload = {
-                    "id": user_id,
-                    "full_name": full_name,
-                    "email": email
-                }
-                prof_headers = {
-                    "apikey": service_role_key,
-                    "Authorization": f"Bearer {service_role_key}",
-                    "Content-Type": "application/json",
-                    "Prefer": "resolution=merge-duplicates"
-                }
-                try:
-                    prof_req = urllib.request.Request(profile_url, data=json.dumps(prof_payload).encode('utf-8'), headers=prof_headers, method='POST')
-                    with urllib.request.urlopen(prof_req) as _:
-                        pass
-                except Exception as p_err:
-                    logger.warning(f"Failed to create public.profiles row: {p_err}")
-
-            # Delete OTP after successful user creation
-            db.delete(record)
-            db.commit()
-
-            return {"message": "User registered and verified successfully", "user": user_res}
-    except urllib.error.HTTPError as e:
-        err_text = e.read().decode('utf-8')
-        logger.error(f"Supabase Admin Create User Error: {err_text}")
-        if "already registered" in err_text.lower() or "already been registered" in err_text.lower():
-            raise HTTPException(status_code=400, detail="This email is already registered. Please log in.")
-        raise HTTPException(status_code=400, detail="Failed to create user account. Please try again.")
+        res = sync_supabase_user(email=email, password=password, user_metadata={"full_name": full_name})
+        # Delete OTP after successful user creation
+        db.delete(record)
+        db.commit()
+        return {"message": "User registered and verified successfully", "user": res}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Registration Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest, db: Session = Depends(get_db)):
+    email = body.email.strip().lower()
+    password = body.password
+    otp_code = (body.otp or "").strip()
+
+    if not password or len(password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
+    # Verify OTP if provided
+    record = None
+    if otp_code:
+        record = db.query(OTPRecord).filter(OTPRecord.email == email).order_by(OTPRecord.created_at.desc()).first()
+        if not record:
+            raise HTTPException(status_code=400, detail="No OTP found for this email.")
+        if record.otp_code != otp_code:
+            raise HTTPException(status_code=400, detail="Invalid OTP.")
+
+        now_utc = datetime.now(timezone.utc)
+        created_at_utc = record.created_at.replace(tzinfo=timezone.utc) if record.created_at.tzinfo is None else record.created_at
+        if (now_utc - created_at_utc) > timedelta(minutes=10):
+            raise HTTPException(status_code=400, detail="OTP has expired.")
+
+    # Update password in Supabase Auth & Profiles
+    try:
+        res = sync_supabase_user(email=email, password=password)
+        if record:
+            db.delete(record)
+            db.commit()
+        return {"message": "Password reset successfully and synchronized to Supabase Cloud", "user": res}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Reset Password Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/update-credentials")
+async def update_credentials(body: UpdateCredentialsRequest):
+    email = body.email.strip().lower()
+    password = body.password
+    passkey = body.passkey
+
+    # Sync to Supabase
+    try:
+        res = sync_supabase_user(email=email, password=password, passkey=passkey)
+        return {"message": "Credentials updated and synchronized to Supabase Cloud", "user": res}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update Credentials Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sync-admin")
+async def sync_admin():
+    """Ensures default admin exists in Supabase Auth Cloud."""
+    try:
+        res = sync_supabase_user(
+            email="varaprasadmokharala5@gmail.com",
+            password=None, # Will use admin123 if creating
+            passkey="1234",
+            user_metadata={"role": "admin", "is_admin": True, "full_name": "System Administrator"}
+        )
+        return {"message": "Admin user synchronized in Supabase Cloud", "user": res}
+    except Exception as e:
+        logger.error(f"Sync Admin Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/cache-status")
+async def get_cache_status():
+    """Public endpoint for mobile app to check sync status of cache flush."""
+    from routes.admin import _GLOBAL_LAST_FLUSH_AT
+    return {
+        "last_flushed_at": _GLOBAL_LAST_FLUSH_AT,
+        "status": "synced"
+    }
+

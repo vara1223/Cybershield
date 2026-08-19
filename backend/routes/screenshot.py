@@ -8,7 +8,7 @@ from models.scan_log import ScanLog
 from services.screenshot_analyzer import analyze_screenshot
 from utils.tips import get_tips
 from schemas.responses import ScanResponse
-from main import limiter
+from limiter import limiter
 
 router = APIRouter()
 

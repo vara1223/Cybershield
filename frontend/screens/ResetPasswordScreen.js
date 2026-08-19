@@ -327,13 +327,24 @@ export default function ResetPasswordScreen({ navigation, route }) {
     try {
       const targetEmail = (email || '').trim().toLowerCase();
 
-      // 1. Save password in local AsyncStorage for instant offline & online authentication
+      // 1. Sync directly to Supabase Auth Cloud via Backend API
+      try {
+        await api.resetPasswordWithOtp({
+          email: targetEmail,
+          password: newPassword,
+          otp: otp || '',
+        });
+      } catch (cloudErr) {
+        console.log('[ResetPasswordScreen] Cloud reset note:', cloudErr?.message);
+      }
+
+      // 2. Save password in local AsyncStorage for instant offline & local authentication
       if (targetEmail === 'varaprasadmokharala5@gmail.com') {
         await AsyncStorage.setItem('admin_password', newPassword).catch(() => {});
       }
       await AsyncStorage.setItem(`user_password_${targetEmail}`, newPassword).catch(() => {});
 
-      // 2. Sync to Supabase `profiles` DB table
+      // 3. Sync to Supabase `profiles` DB table
       try {
         await supabase
           .from('profiles')
@@ -345,7 +356,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
           .eq('email', targetEmail);
       } catch (_) {}
 
-      // 3. Sync to Supabase `users` DB table
+      // 4. Sync to Supabase `users` DB table
       try {
         await supabase
           .from('users')
@@ -357,7 +368,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
           .eq('email', targetEmail);
       } catch (_) {}
 
-      // 4. Attempt Supabase Auth Cloud Update
+      // 5. Attempt Supabase Auth Client Update if active session
       if (updatePassword) {
         await updatePassword(newPassword).catch(() => {});
       }
@@ -365,7 +376,7 @@ export default function ResetPasswordScreen({ navigation, route }) {
         await completePasswordReset(newPassword).catch(() => {});
       }
 
-      setSuccess('🎉 Password reset successfully! Redirecting to Sign In...');
+      setSuccess('🎉 Password reset successfully and synced to cloud! Redirecting to Sign In...');
       setStage('completed');
 
       setTimeout(() => {

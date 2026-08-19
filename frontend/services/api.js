@@ -89,7 +89,7 @@ async function fileToBase64(uri) {
       reader.readAsDataURL(blob);
     });
   }
-  const FileSystem = await import('expo-file-system/src/legacy');
+  const FileSystem = await import('expo-file-system/legacy');
   const readFn = FileSystem.readAsStringAsync || FileSystem.default?.readAsStringAsync;
   const base64 = await readFn(uri, { encoding: FileSystem.EncodingType?.Base64 || 'base64' });
   return base64;
@@ -127,9 +127,10 @@ export const api = {
     return res.data;
   },
 
-  async analyzeVoice(audioSource, format = 'webm', clientTranscript = null) {
+  async analyzeVoice(audioSource, format = 'webm', clientTranscript = null, language = 'auto', customFileName = null) {
     const formData = new FormData();
     formData.append('format', format || 'webm');
+    formData.append('language', language || 'auto');
 
     if (clientTranscript && typeof clientTranscript === 'string' && clientTranscript.trim()) {
       formData.append('transcript', clientTranscript.trim());
@@ -137,12 +138,17 @@ export const api = {
 
     if (audioSource) {
       if (audioSource instanceof Blob || (typeof File !== 'undefined' && audioSource instanceof File)) {
-        formData.append('audio', audioSource, `recording.${format || 'webm'}`);
+        const filename = (audioSource instanceof File && audioSource.name)
+          ? audioSource.name
+          : (customFileName || `recording.${format || 'webm'}`);
+        formData.append('audio', audioSource, filename);
       } else if (typeof audioSource === 'string' && audioSource.trim()) {
         try {
           const response = await fetch(audioSource);
           const blob = await response.blob();
-          formData.append('audio', blob, `recording.${format || 'webm'}`);
+          const fallbackExt = format || (audioSource.includes('.') ? audioSource.split('.').pop()?.split('?')[0] : 'm4a');
+          const filename = customFileName || `recording.${fallbackExt}`;
+          formData.append('audio', blob, filename);
         } catch (err) {
           console.log('[API] fetch audio blob error:', err?.message);
         }
@@ -259,6 +265,47 @@ export const api = {
     });
     return res.data;
   },
+  resetPasswordWithOtp: async ({ email, password, otp }) => {
+    const res = await axios.post(`${BASE_URL}/api/custom-auth/reset-password`, {
+      email,
+      password,
+      otp,
+    });
+    return res.data;
+  },
+  updateCredentialsDirect: async ({ email, password, passkey, current_password }) => {
+    const res = await axios.post(`${BASE_URL}/api/custom-auth/update-credentials`, {
+      email,
+      password,
+      passkey,
+      current_password,
+    });
+    return res.data;
+  },
+
+  // Real System Cache & Multi-Device Sync
+  getCacheStats: async () => {
+    try {
+      const res = await client.get('/admin/cache/stats');
+      return res.data;
+    } catch (_) {
+      return null;
+    }
+  },
+  flushCache: async () => {
+    const res = await client.post('/admin/cache/flush');
+    return res.data;
+  },
+  getCacheSyncStatus: async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/api/custom-auth/cache-status`);
+      return res.data;
+    } catch (_) {
+      return null;
+    }
+  },
 };
 
 export default api;
+
+

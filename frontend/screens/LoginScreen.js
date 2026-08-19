@@ -182,6 +182,7 @@ export default function LoginScreen({ navigation }) {
 
       if (passwordValid) {
         try {
+          await AsyncStorage.setItem('admin_password', password).catch(() => {});
           await signIn({ email: trimmedEmail, password });
         } catch (e) {
           console.log('[LoginScreen] Admin cloud signIn note:', e?.message);

@@ -13,6 +13,8 @@ class ScanResponse(BaseModel):
     classification: Optional[str] = None
     category: Optional[str] = None
     language: Optional[str] = None
+    detected_languages: Optional[List[str]] = None
+    is_multilingual: Optional[bool] = None
     risk_level: Optional[str] = None
     reason: Optional[str] = None
     recommended_action: Optional[str] = None
@@ -81,8 +83,8 @@ class UserDetailsOut(BaseModel):
 
 
 class AdminMonitorScan(BaseModel):
-    id: int
-    scan_id: int
+    id: Any
+    scan_id: Any
     user_id: Optional[str] = None
     user_name: str
     user_email: str

@@ -8,7 +8,7 @@ from models.scan_log import ScanLog
 from services.voice_analyzer import analyze_voice_bytes
 from utils.tips import get_tips
 from schemas.responses import ScanResponse
-from main import limiter
+from limiter import limiter
 
 router = APIRouter()
 
@@ -119,6 +119,8 @@ async def scan_voice(
         classification=result.get("classification", "Likely Safe"),
         category=result.get("Category", result.get("category", "NORMAL_CALL")),
         language=result.get("Language", result.get("language", language)),
+        detected_languages=result.get("detected_languages", [result.get("Language", "English")]),
+        is_multilingual=result.get("is_multilingual", False),
         risk_level=result.get("risk_level", "Low"),
         reason=result.get("reason", result["explanation"]),
         recommended_action=result.get("recommended_action", tips[0] if tips else ""),

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Linking } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Share, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import useScanStore from '../store/useScanStore';
@@ -62,6 +62,7 @@ export default function ResultScreen({ navigation }) {
   const reasonText = result.reason || result.explanation;
   const detectedCategory = result.category || result.raw?.Category || result.raw?.category || null;
   const detectedLanguage = result.language || result.raw?.Language || result.raw?.language || null;
+  const isMultilingual = result.is_multilingual || result.raw?.is_multilingual || (detectedLanguage && detectedLanguage.includes('+'));
 
   async function handleShare() {
     try {
@@ -166,10 +167,10 @@ export default function ResultScreen({ navigation }) {
           {(detectedCategory || detectedLanguage) && (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
               {detectedLanguage && (
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.22)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                   <Ionicons name="language-outline" size={13} color="#fff" />
                   <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700', fontFamily: Typography.monoBold }}>
-                    {`LANG: ${detectedLanguage.toUpperCase()}`}
+                    {isMultilingual ? `MULTI-LANG: ${detectedLanguage.toUpperCase()}` : `LANG: ${detectedLanguage.toUpperCase()}`}
                   </Text>
                 </View>
               )}
@@ -195,24 +196,39 @@ export default function ResultScreen({ navigation }) {
               </Text>
             </View>
             <View style={{ marginTop: 8, width: '100%', alignItems: 'center' }}>
-              <audio src={result.audioUri || result.raw?.audioUri} controls style={{ width: '100%', height: 40 }} />
+              {Platform.OS === 'web' ? (
+                <audio src={result.audioUri || result.raw?.audioUri} controls style={{ width: '100%', height: 40 }} />
+              ) : (
+                <Text style={{ fontSize: 13, color: colors.textSecondary, fontFamily: Typography.body }}>
+                  Audio recording captured and analyzed.
+                </Text>
+              )}
             </View>
           </View>
         )}
 
-        {/* Dedicated Scanned Target / Payload Card */}
-        {result.input_data ? (
+        {/* Dedicated Scanned Target / Extracted Audio Transcript Card */}
+        {result.feature === 'voice_scan' ? (
           <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="finger-print-outline" size={18} color={verdictColor} />
-              <Text style={[styles.cardTitle, { color: verdictColor }]}>
-                {result.feature === 'voice_scan' ? 'AUDIO TRANSCRIPT' : 'EXTRACTED TEXT / PAYLOAD'}
-              </Text>
+            <View style={[styles.cardHeader, { justifyContent: 'space-between' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="chatbox-ellipses-outline" size={18} color={verdictColor} />
+                <Text style={[styles.cardTitle, { color: verdictColor }]}>
+                  EXTRACTED AUDIO TRANSCRIPT
+                </Text>
+              </View>
+              {detectedLanguage && (
+                <View style={{ backgroundColor: isDark ? '#1E293B' : '#E2E8F0', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: colors.primary, fontFamily: Typography.monoBold }}>
+                    {detectedLanguage}
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={[styles.payloadBox, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: colors.border }]}>
               <Text style={[styles.payloadText, { color: colors.text }]}>
-                {result.input_data}
+                {renderHighlighted(transcript || result.input_data, highlighted, verdictColor)}
               </Text>
             </View>
 
@@ -220,12 +236,38 @@ export default function ResultScreen({ navigation }) {
               <View style={[styles.mlChip, { backgroundColor: isDark ? '#1E293B' : '#EDF2F7', borderColor: colors.border }]}>
                 <Ionicons name="hardware-chip-outline" size={13} color={colors.primary} />
                 <Text style={[styles.mlChipText, { color: colors.textSecondary }]}>
-                  {`Local AI Engine: `}<Text style={{ color: colors.text, fontWeight: '700' }}>{mlModelName}</Text>
+                  {`AI Transcriber & NLP Analyzer: `}<Text style={{ color: colors.text, fontWeight: '700' }}>{mlModelName}</Text>
                 </Text>
               </View>
             ) : null}
           </View>
-        ) : null}
+        ) : (
+          result.input_data ? (
+            <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
+              <View style={styles.cardHeader}>
+                <Ionicons name="finger-print-outline" size={18} color={verdictColor} />
+                <Text style={[styles.cardTitle, { color: verdictColor }]}>
+                  EXTRACTED TEXT / PAYLOAD
+                </Text>
+              </View>
+
+              <View style={[styles.payloadBox, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: colors.border }]}>
+                <Text style={[styles.payloadText, { color: colors.text }]}>
+                  {result.input_data}
+                </Text>
+              </View>
+
+              {mlModelName ? (
+                <View style={[styles.mlChip, { backgroundColor: isDark ? '#1E293B' : '#EDF2F7', borderColor: colors.border }]}>
+                  <Ionicons name="hardware-chip-outline" size={13} color={colors.primary} />
+                  <Text style={[styles.mlChipText, { color: colors.textSecondary }]}>
+                    {`Local AI Engine: `}<Text style={{ color: colors.text, fontWeight: '700' }}>{mlModelName}</Text>
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null
+        )}
 
         {/* Detected Scam Indicators Card */}
         {detectedIndicators && detectedIndicators.length > 0 && (
@@ -269,21 +311,6 @@ export default function ResultScreen({ navigation }) {
             </View>
             <Text style={[styles.explanation, { color: colors.text }]}>
               {recommendedAction}
-            </Text>
-          </View>
-        )}
-
-        {/* Transcript (voice scan only) */}
-        {transcript && !transcript.startsWith('[') && (
-          <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }, Shadow.sm]}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="chatbox-ellipses-outline" size={18} color={verdictColor} />
-              <Text style={[styles.cardTitle, { color: verdictColor }]}>
-                HIGHLIGHTED CALL DIALOGUE
-              </Text>
-            </View>
-            <Text style={[styles.transcript, { color: colors.text }]}>
-              {renderHighlighted(transcript, highlighted, verdictColor)}
             </Text>
           </View>
         )}

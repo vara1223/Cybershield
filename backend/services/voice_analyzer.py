@@ -166,14 +166,14 @@ SCAM_CALL_PATTERNS = [
 
 
 def _detect_audio_suffix(audio_bytes: bytes, fallback_format: str = "m4a") -> str:
-    if not audio_bytes or len(audio_bytes) < 12:
+    if not audio_bytes or len(audio_bytes) < 4:
         fmt = (fallback_format or "m4a").strip().lstrip(".")
         return f".{fmt}" if fmt else ".m4a"
     # WebM / Matroska (EBML) header
     if audio_bytes.startswith(b"\x1a\x45\xdf\xa3"):
         return ".webm"
     # WAV header
-    if audio_bytes.startswith(b"RIFF") and audio_bytes[8:12] == b"WAVE":
+    if audio_bytes.startswith(b"RIFF") and len(audio_bytes) >= 12 and audio_bytes[8:12] == b"WAVE":
         return ".wav"
     # Ogg header
     if audio_bytes.startswith(b"OggS"):
@@ -181,9 +181,12 @@ def _detect_audio_suffix(audio_bytes: bytes, fallback_format: str = "m4a") -> st
     # FLAC header
     if audio_bytes.startswith(b"fLaC"):
         return ".flac"
-    # MP3 header
-    if audio_bytes.startswith(b"ID3") or audio_bytes[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"):
+    # MP3 header (ID3 or sync word 0xFFE / 0xFFF)
+    if audio_bytes.startswith(b"ID3") or (audio_bytes[0] == 0xFF and (audio_bytes[1] & 0xE0) == 0xE0):
         return ".mp3"
+    # AAC ADTS header
+    if audio_bytes[0] == 0xFF and (audio_bytes[1] & 0xF6) == 0xF0:
+        return ".aac"
     # MP4 / M4A header (ftyp box)
     if b"ftyp" in audio_bytes[:32]:
         return ".m4a"
@@ -193,9 +196,8 @@ def _detect_audio_suffix(audio_bytes: bytes, fallback_format: str = "m4a") -> st
 
 def _convert_to_16k_wav(input_path: str) -> str:
     """
-    Use ffmpeg to convert any audio format to 16 kHz, mono, 16-bit PCM WAV.
-    Returns path to the converted WAV file (caller must delete it).
-    Raises RuntimeError if ffmpeg is unavailable or conversion fails.
+    Use ffmpeg to convert any audio format (MP3, WAV, M4A, WebM, OGG, AAC, FLAC, etc.)
+    to standard 16 kHz, mono, 16-bit PCM WAV for maximum Whisper accuracy.
     """
     import subprocess
     ffmpeg = _get_ffmpeg_path()
@@ -206,16 +208,16 @@ def _convert_to_16k_wav(input_path: str) -> str:
     os.close(out_fd)
     cmd = [
         ffmpeg,
-        "-y",                  # overwrite output without prompt
+        "-y",
         "-i", input_path,
-        "-ar", "16000",        # resample to 16 kHz
-        "-ac", "1",            # mono channel
-        "-sample_fmt", "s16",  # 16-bit PCM
-        "-vn",                 # no video stream
+        "-vn",
+        "-acodec", "pcm_s16le",
+        "-ac", "1",
+        "-ar", "16000",
         out_path,
     ]
     result = subprocess.run(
-        cmd, capture_output=True, timeout=30
+        cmd, capture_output=True, timeout=45
     )
     if result.returncode != 0:
         stderr = result.stderr.decode(errors="replace")[:400]
@@ -223,26 +225,57 @@ def _convert_to_16k_wav(input_path: str) -> str:
     return out_path
 
 
-def _transcribe_local(audio_bytes: bytes, audio_format: str, language: str = "auto") -> str:
+def _detect_audio_languages(model, audio_path: str) -> list[str]:
     """
-    Transcribe audio bytes using the local Whisper model.
+    Detect languages present in the audio file using Whisper's log mel spectrogram.
+    Returns list of language names above confidence threshold.
+    """
+    LANG_NAMES = {
+        "en": "English", "te": "Telugu", "hi": "Hindi", "ta": "Tamil",
+        "kn": "Kannada", "ml": "Malayalam", "mr": "Marathi", "bn": "Bengali",
+        "gu": "Gujarati", "pa": "Punjabi", "ur": "Urdu", "or": "Odia",
+        "es": "Spanish", "fr": "French", "de": "German",
+    }
+    try:
+        import whisper
+        audio = whisper.load_audio(audio_path)
+        audio = whisper.pad_or_trim(audio)
+        mel = whisper.log_mel_spectrogram(audio).to(model.device)
+        _, probs = model.detect_language(mel)
+
+        sorted_probs = sorted(probs.items(), key=lambda item: item[1], reverse=True)
+        detected = []
+        for code, prob in sorted_probs:
+            if prob >= 0.08 and code in LANG_NAMES:
+                detected.append(LANG_NAMES[code])
+            if len(detected) >= 3:
+                break
+        return detected
+    except Exception as e:
+        print(f"[VOICE] Acoustic language detection note: {e}")
+        return []
+
+
+def _transcribe_local(audio_bytes: bytes, audio_format: str, language: str = "auto") -> tuple[str, list[str]]:
+    """
+    Transcribe audio bytes using the local Whisper model with multilingual support.
     Pipeline:
-      1. Write raw bytes to a temp file (preserving original format).
-      2. Convert to 16 kHz mono WAV via ffmpeg.
-      3. Transcribe with Whisper (supporting language selection: en/hi/te/ta/auto + English translation).
+      1. Write raw bytes to a temp file.
+      2. Convert to 16 kHz mono PCM WAV via ffmpeg.
+      3. Transcribe with Whisper (supporting language selection or automatic multi-language detection).
+      4. If audio is non-English or code-mixed (e.g. Telugu, Hindi, Tamil), run English translation pass
+         so both native and English semantics are passed to the scam engine.
+    Returns: (transcript_text: str, detected_acoustic_languages: list[str])
     """
     model = _get_local_whisper()
     if not model or not audio_bytes:
         print("[VOICE] Skipping local STT: model or audio unavailable")
-        return ""
+        return "", []
 
     suffix = _detect_audio_suffix(audio_bytes, audio_format)
     print(f"[VOICE] Writing {len(audio_bytes)} bytes as {suffix} for STT (language={language})")
 
-    # Track temp files so we always clean up even on early exceptions
     _tmp_files = []
-
-    # Write raw input to a temp file
     raw_fd, raw_path = tempfile.mkstemp(suffix=suffix)
     _tmp_files.append(raw_path)
     try:
@@ -250,17 +283,20 @@ def _transcribe_local(audio_bytes: bytes, audio_format: str, language: str = "au
             f.write(audio_bytes)
 
         # Preprocess: any format → 16 kHz mono WAV
-        wav_path = None
         try:
             wav_path = _convert_to_16k_wav(raw_path)
             _tmp_files.append(wav_path)
             transcribe_path = wav_path
             print(f"[VOICE] ffmpeg → 16kHz WAV done ({transcribe_path})")
         except Exception as ffmpeg_err:
-            print(f"[VOICE] ffmpeg skipped ({ffmpeg_err}), using raw file")
+            print(f"[VOICE] ffmpeg note ({ffmpeg_err}), using raw file")
             transcribe_path = raw_path
 
-        # Transcribe with language support (en/hi/te/ta or None for auto)
+        # Detect acoustic language distribution
+        acoustic_langs = _detect_audio_languages(model, transcribe_path)
+        if acoustic_langs:
+            print(f"[VOICE] Acoustic languages detected: {acoustic_langs}")
+
         lang_arg = None if (not language or language == "auto") else language.lower()
         import warnings
         with warnings.catch_warnings():
@@ -270,33 +306,47 @@ def _transcribe_local(audio_bytes: bytes, audio_format: str, language: str = "au
                 language=lang_arg,
                 fp16=False,
                 verbose=False,
+                temperature=0.0,
+                beam_size=5,
+                best_of=5,
+                condition_on_previous_text=False,
             )
         txt = result.get("text", "").strip() if isinstance(result, dict) else ""
+        detected_lang = result.get("language") if isinstance(result, dict) else None
 
-        # If regional language selected (e.g. te, hi, ta), also translate to English for 100% scam scoring accuracy
-        if lang_arg and lang_arg != "en":
+        print(f"[VOICE] Whisper transcript ({len(txt)} chars, detected_lang={detected_lang}, lang_arg={lang_arg}): '{txt[:140]}'")
+
+        native_txt = txt
+        trans_txt = ""
+
+        # If regional language (e.g. te, hi, ta) or detected non-English, also translate to English
+        effective_lang = lang_arg or detected_lang
+        if effective_lang and effective_lang not in ("en", "english"):
             try:
                 with warnings.catch_warnings():
                     warnings.filterwarnings("ignore", message="FP16 is not supported on CPU")
                     trans_res = model.transcribe(
                         transcribe_path,
-                        language=lang_arg,
+                        language=effective_lang,
                         task="translate",
                         fp16=False,
                         verbose=False,
+                        temperature=0.0,
+                        beam_size=5,
                     )
                 trans_txt = trans_res.get("text", "").strip() if isinstance(trans_res, dict) else ""
-                if trans_txt and trans_txt != txt:
-                    txt = f"{txt} | English Translation: {trans_txt}"
+                if trans_txt and trans_txt.lower() != native_txt.lower():
+                    print(f"[VOICE] Whisper English translation: '{trans_txt[:140]}'")
+                    txt = f"{native_txt} | English: {trans_txt}"
             except Exception as tr_err:
                 print(f"[VOICE] Translation pass note: {tr_err}")
 
-        print(f"[VOICE] Whisper transcript ({len(txt)} chars, lang={lang_arg}): '{txt[:120]}'")
-        return txt
+        return txt, native_txt, trans_txt, acoustic_langs
 
     except Exception as e:
-        print(f"[VOICE] Whisper transcription error: {e}")
-        return ""
+        import traceback
+        print(f"[VOICE] Whisper transcription error:\n{traceback.format_exc()}")
+        return "", "", "", []
     finally:
         for p in _tmp_files:
             try:
@@ -458,11 +508,14 @@ def analyze_voice_bytes(audio_bytes: bytes, audio_format: str = "webm", client_t
     # ── Step 1: Whisper STT ──────────────────────────────────────────────────
     whisper_available = _get_local_whisper() is not None
     MIN_AUDIO_BYTES = 1000  # anything smaller is almost certainly corrupt/empty
+    acoustic_detected_langs = []
+    native_text = ""
+    english_text = ""
 
     if audio_size >= MIN_AUDIO_BYTES and whisper_available and len(transcript) < 15:
         print(f"[VOICE] Running Whisper on {audio_size}B of audio (language={language})...")
         try:
-            whisper_txt = _transcribe_local(audio_bytes, audio_format, language)
+            whisper_txt, native_text, english_text, acoustic_detected_langs = _transcribe_local(audio_bytes, audio_format, language)
             print(f"[VOICE] Whisper STT result: {len(whisper_txt)} chars → {repr(whisper_txt[:100])}")
             if whisper_txt and len(whisper_txt.strip()) > 0:
                 transcript = whisper_txt.strip()
@@ -485,6 +538,33 @@ def analyze_voice_bytes(audio_bytes: bytes, audio_format: str = "webm", client_t
         print(f"[VOICE] ML classifier error:\n{traceback.format_exc()}")
         clf_result = None
 
+    # Merge detected languages from acoustic + transcript text
+    detected_languages = []
+    if clf_result and clf_result.get("detected_languages"):
+        for l in clf_result["detected_languages"]:
+            if l not in detected_languages:
+                detected_languages.append(l)
+    for l in acoustic_detected_langs:
+        if l not in detected_languages:
+            detected_languages.append(l)
+    if not detected_languages:
+        detected_languages = ["English"]
+
+    is_multilingual = len(detected_languages) > 1
+    if is_multilingual:
+        if "Telugu" in detected_languages and "English" in detected_languages and len(detected_languages) == 2:
+            language_label = "Telugu + English (Teluglish / Code-Mixed)"
+        elif "Hindi" in detected_languages and "English" in detected_languages and len(detected_languages) == 2:
+            language_label = "Hindi + English (Hinglish / Code-Mixed)"
+        elif "Tamil" in detected_languages and "English" in detected_languages and len(detected_languages) == 2:
+            language_label = "Tamil + English (Tanglish / Code-Mixed)"
+        elif "Kannada" in detected_languages and "English" in detected_languages and len(detected_languages) == 2:
+            language_label = "Kannada + English (Kanglish / Code-Mixed)"
+        else:
+            language_label = " + ".join(detected_languages) + " (Multilingual)"
+    else:
+        language_label = detected_languages[0]
+
     if clf_result:
         verdict          = clf_result["verdict"]
         confidence       = clf_result["confidence"]
@@ -494,6 +574,7 @@ def analyze_voice_bytes(audio_bytes: bytes, audio_format: str = "webm", client_t
         highlighted_phrases = clf_result["highlighted_phrases"]
         explanation      = clf_result["explanation"]
         recommended_action = clf_result["recommended_action"]
+        category         = clf_result.get("Category", "NORMAL_CALL")
         ml_model_label   = (
             "TF-IDF + SVM/RF Ensemble + Rule Engine (Local Sklearn)"
             if clf_result.get("ml_available") else "Rule Engine (Local)"
@@ -512,6 +593,7 @@ def analyze_voice_bytes(audio_bytes: bytes, audio_format: str = "webm", client_t
         confidence       = float(score)
         classification   = "Scam" if verdict == "DANGEROUS" else "Suspicious" if verdict == "SUSPICIOUS" else "Likely Safe"
         risk_level       = "High" if verdict == "DANGEROUS" else "Medium" if verdict == "SUSPICIOUS" else "Low"
+        category         = "NORMAL_CALL"
         detected_indicators = []
         highlighted_phrases = []
         explanation      = "Rule-based analysis (ML model unavailable)."
@@ -533,31 +615,49 @@ def analyze_voice_bytes(audio_bytes: bytes, audio_format: str = "webm", client_t
             "confidence": 0.0,
             "classification": "Unable to Analyze",
             "risk_level": "UNKNOWN",
+            "Language": language_label,
+            "language": language_label,
+            "detected_languages": detected_languages,
+            "is_multilingual": is_multilingual,
+            "Category": "NORMAL_CALL",
+            "category": "NORMAL_CALL",
             "explanation": msg,
             "reason": msg,
             "recommended_action": "Please check your microphone and record again for 3-5 seconds while speaking clearly.",
             "detected_indicators": [],
             "flags": ["silent_audio"],
             "transcript": "",
+            "transcript_native": "",
+            "transcript_english": "",
+            "extracted_text": "",
             "input_data": f"[No usable speech detected — {audio_size}B received]",
             "highlighted_phrases": [],
             "stt_provider": stt_provider,
             "ml_model": ml_model_label,
         }
 
-    print(f"[VOICE] Final verdict: {verdict} ({confidence}%) — transcript: {repr(transcript[:80])}")
+    print(f"[VOICE] Final verdict: {verdict} ({confidence}%) — language: {language_label} — transcript: {repr(transcript[:80])}")
 
     return {
         "verdict": verdict,
         "confidence": confidence,
         "classification": classification,
         "risk_level": risk_level,
+        "Language": language_label,
+        "language": language_label,
+        "detected_languages": detected_languages,
+        "is_multilingual": is_multilingual,
+        "Category": category,
+        "category": category,
         "explanation": explanation,
         "reason": explanation,
         "recommended_action": recommended_action,
         "detected_indicators": detected_indicators,
         "flags": highlighted_phrases,
         "transcript": transcript,
+        "transcript_native": native_text or transcript,
+        "transcript_english": english_text,
+        "extracted_text": transcript,
         "input_data": transcript,
         "highlighted_phrases": highlighted_phrases,
         "stt_provider": stt_provider,

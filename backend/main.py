@@ -1,16 +1,16 @@
 from dotenv import load_dotenv
-load_dotenv(override=True)  # 100% Local ML Active (Voice Rate Limit 30/min Active) # force reload 2
+load_dotenv(override=True)
 
 import os
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from database import engine, Base
+from limiter import limiter
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("cybershield")
@@ -34,9 +34,6 @@ if not _ADMIN_KEY:
 _RAW_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*")
 ALLOWED_ORIGINS = [o.strip() for o in _RAW_ORIGINS.split(",") if o.strip()]
 _ALLOW_ALL_ORIGINS = "*" in ALLOWED_ORIGINS or not ALLOWED_ORIGINS
-
-# ── Rate limiter ────────────────────────────────────────────────────────────────
-limiter = Limiter(key_func=get_remote_address, default_limits=["200/minute"])
 
 from routes import url, screenshot, qr, otp, upi, voice, admin, custom_auth
 # Import models so SQLAlchemy registers them before create_all

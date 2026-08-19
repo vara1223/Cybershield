@@ -38,26 +38,85 @@ def _load_pipeline():
 
 
 # ─── Language Detector ──────────────────────────────────────────────────────
-def detect_transcript_language(text: str) -> str:
-    lower = text.lower()
-    has_telugu = bool(re.search(r"[\u0C00-\u0C7F]", text)) or bool(re.search(r"\b(cheppandi|pampandi|dabbulu|avthundi|చేయండి|చెప్పండి|అకౌంట్|ఈ|నుంచి|మీకు)\b", lower))
-    has_tamil = bool(re.search(r"[\u0B80-\u0BFF]", text)) or bool(re.search(r"\b(சொல்லுங்கள்|பண்ணுகிறேன்|உங்களுக்கு|பேசுகிறேன்|உடனே|வந்த)\b", lower))
-    has_hindi = bool(re.search(r"[\u0900-\u097F]", text)) or bool(re.search(r"\b(बताइए|होगा|रहा|हूँ|करिए|आपकी|आपके|मुझे)\b", lower))
-    has_english = bool(re.search(r"[a-zA-Z]", text))
+def detect_transcript_languages(text: str) -> tuple[str, list[str], bool]:
+    """
+    Detect all languages and code-mixed combinations present in the transcript.
+    Returns:
+      (language_label: str, detected_languages_list: list[str], is_multilingual: bool)
+    """
+    if not text or not text.strip():
+        return "English", ["English"], False
 
-    if has_telugu and has_english:
-        return "Telugu + English"
-    elif has_tamil and has_english:
-        return "Tamil + English"
-    elif has_hindi and has_english:
-        return "Hindi + English"
-    elif has_telugu:
-        return "Telugu"
-    elif has_tamil:
-        return "Tamil"
-    elif has_hindi:
-        return "Hindi"
-    return "English"
+    lower = text.lower()
+    languages = []
+
+    # 1. Telugu (Script [\u0C00-\u0C7F] or Romanized Telugu)
+    has_telugu = bool(re.search(r"[\u0C00-\u0C7F]", text)) or bool(re.search(r"\b(cheppandi|cheppanu|pampandi|dabbulu|avthundi|chesanu|chesam|avunu|kadu|ippude|ventane|nenu|meeku|miku|gurinchi|daggara|undi|ledu|kavali|cheyandi|vastundi|vachindi|chudandi|adugutunnaru|matladutunnanu|చేయండి|చెప్పండి|అకౌంట్|ఈ|నుంచి|మీకు|డబ్బులు|వెంటనే)\b", lower))
+    if has_telugu:
+        languages.append("Telugu")
+
+    # 2. Hindi (Script [\u0900-\u097F] or Romanized Hindi/Hinglish)
+    has_hindi = bool(re.search(r"[\u0900-\u097F]", text)) or bool(re.search(r"\b(bataiye|batao|kijiye|karo|bol raha|paisa|paise|bhejiye|bhejo|karein|hoga|hogi|aapka|aapki|aapke|mujhe|humko|turant|abhi|suno|sunie|nahin|nahi|hai|hain|kripya|khatra|aadhaar|khata|band|chalu|mera|meri|बताइए|होगा|रहा|हूँ|करिए|आपकी|आपके|मुझे|पैसा|तुरंत)\b", lower))
+    if has_hindi:
+        languages.append("Hindi")
+
+    # 3. Tamil (Script [\u0B80-\u0BFF] or Romanized Tamil/Tanglish)
+    has_tamil = bool(re.search(r"[\u0B80-\u0BFF]", text)) or bool(re.search(r"\b(sollunga|solunga|pannunga|panunga|pesuren|pesukiren|panam|kaasu|udane|ippove|unga|ungalukku|enakku|vandhu|vanthathu|illai|aam|illaye|kudunga|சொல்லுங்கள்|பண்ணுகிறேன்|உங்களுக்கு|பேசுகிறேன்|உடனே|வந்த|பணம்)\b", lower))
+    if has_tamil:
+        languages.append("Tamil")
+
+    # 4. Kannada (Script [\u0C80-\u0CFF] or Romanized Kannada)
+    has_kannada = bool(re.search(r"[\u0C80-\u0CFF]", text)) or bool(re.search(r"\b(heli|helri|kodi|madiri|madbeku|duddu|hana|nimma|nange|ega|ivagale|beku|beda|illa|houdu|ಹೇಳಿ|ಕೊಡಿ|ದುಡ್ಡು|ನಿಮ್ಮ)\b", lower))
+    if has_kannada:
+        languages.append("Kannada")
+
+    # 5. Malayalam (Script [\u0D00-\u0D7F] or Romanized Malayalam)
+    has_malayalam = bool(re.search(r"[\u0D00-\u0D7F]", text)) or bool(re.search(r"\b(parayoo|cheyyoo|panam|kaashu|ippol|udan|njangal|ningal|illa|aannu|ariyilla|പറയൂ|പണം|ഉടൻ)\b", lower))
+    if has_malayalam:
+        languages.append("Malayalam")
+
+    # 6. Marathi (Devanagari with Marathi specific markers)
+    has_marathi = bool(re.search(r"\b(ahe|ahet|kara|karave|sangato|sangte|paise|patva|kashala|amhi|tumhi|tumche|आहे|करा|पैसे|पाठवा)\b", lower))
+    if has_marathi and "Hindi" not in languages:
+        languages.append("Marathi")
+
+    # 7. Bengali (Script [\u0980-\u09FF])
+    has_bengali = bool(re.search(r"[\u0980-\u09FF]", text)) or bool(re.search(r"\b(bolun|korun|taka|ekhon|apnar|amake|বলুন|করুন|টাকা)\b", lower))
+    if has_bengali:
+        languages.append("Bengali")
+
+    # 8. English
+    english_words = re.findall(r"\b[a-zA-Z]{3,}\b", text)
+    has_english_vocab = bool(re.search(r"\b(the|is|are|you|your|from|have|been|will|not|this|that|call|bank|officer|police|arrest|customs|immediately|share|code|number|account|payment|sir|cbi|otp|pin|app|kyc|urgent|transfer|money|click|link|message)\b", lower))
+    if len(english_words) >= 2 or has_english_vocab or (not languages and bool(re.search(r"[a-zA-Z]", text))):
+        languages.append("English")
+
+    if not languages:
+        languages = ["English"]
+
+    is_multilingual = len(languages) > 1
+
+    # Formulate precise user-facing label
+    if is_multilingual:
+        if "Telugu" in languages and "English" in languages and len(languages) == 2:
+            label = "Telugu + English (Teluglish / Code-Mixed)"
+        elif "Hindi" in languages and "English" in languages and len(languages) == 2:
+            label = "Hindi + English (Hinglish / Code-Mixed)"
+        elif "Tamil" in languages and "English" in languages and len(languages) == 2:
+            label = "Tamil + English (Tanglish / Code-Mixed)"
+        elif "Kannada" in languages and "English" in languages and len(languages) == 2:
+            label = "Kannada + English (Kanglish / Code-Mixed)"
+        else:
+            label = " + ".join(languages) + " (Multilingual)"
+    else:
+        label = languages[0]
+
+    return label, languages, is_multilingual
+
+
+def detect_transcript_language(text: str) -> str:
+    label, _, _ = detect_transcript_languages(text)
+    return label
 
 
 # ─── Legitimate Safety Warning Detector (False Positive Guard) ───────────────
@@ -79,69 +138,98 @@ def is_legitimate_warning(text: str) -> bool:
 # ─── Multilingual Rule & Context Engine ──────────────────────────────────────
 RULE_PATTERNS = {
     "fake_authority": [
-        r"\bcbi\s*officer\b", r"\bpolice\s*officer\b", r"\bcybercrime\s*officer\b",
-        r"\bincome\s*tax\s*officer\b", r"\bcustoms\s*officer\b", r"\bed\s*officer\b",
+        r"\bcbi\s*officer\b", r"\bpolice\s*(officer|department|station)?\b", r"\bcybercrime\s*officer\b",
+        r"\bincome\s*tax\s*officer\b", r"\bcustoms\s*(officer|department)?\b", r"\bed\s*officer\b",
         r"\bcourt\s*order\b", r"\bjudiciary\b", r"\bfbi\b", r"\binterpol\b",
-        r"\bi\s*am\s*(an?\s*)?agent\b", r"\bcalling\s*from\s*(the\s*)?bank\b",
-        r"\bbank\s*official\b", r"\brbi\s*officer\b", r"\bgovernment\s*official\b",
-        r"पुलिस", r"सीबीआई", r"बैंक अधिकारी", r"कोर्ट आदेश", r"सरकारी अधिकारी",
-        r"పోలీస్", r"సిబిఐ", r"బ్యాంక్ అధికారి", r"కోర్టు ఆర్డర్", r"నకిలీ పోలీస్",
-        r"போலீஸ்", r"சிபிஐ", r"வங்கி அதிகாரி", r"நீதிமன்ற உத்தரவு"
+        r"\bi\s*am\s*(an?\s*)?agent\b", r"\bcalling\s*from\s*(the\s*)?(bank|rbi|police|customs|telecom|trai)\b",
+        r"\bbank\s*(official|manager|executive|representative)\b", r"\brbi\s*officer\b", r"\bgovernment\s*official\b",
+        r"\bnarcotics\s*control\s*bureau\b", r"\bncb\b", r"\btelecom\s*department\b", r"\btrai\b",
+        r"पुलिस", r"सीबीआई", r"बैंक अधिकारी", r"कोर्ट आदेश", r"सरकारी अधिकारी", r"कस्टम्स",
+        r"పోలీస్", r"సిబిఐ", r"బ్యాంక్ అధికారి", r"కోర్టు ఆర్డర్", r"నకిలీ పోలీస్", r"కస్టమ్స్",
+        r"போலீஸ்", r"சிபிஐ", r"வங்கி அதிகாரி", r"நீதிமன்ற உத்தரவு", r"சுங்கம்"
+    ],
+    "digital_arrest": [
+        r"\bdigital\s*arrest\b", r"\bstay\s*on\s*(the\s*)?(video\s*call|camera|skype|line)\b",
+        r"\bdo\s*not\s*disconnect\b", r"\bvirtual\s*court\b", r"\bvideo\s*investigation\b",
+        r"डिजिटल अरेस्ट", r"वीडियो कॉल", r"డిజిటల్ అరెస్ట్", r"వీడియో కాల్"
+    ],
+    "parcel_customs": [
+        r"\b(fedex|dhl|bluedart|courier|parcel|package)\b.*(seized|illegal|drugs|contraband|passport|customs)",
+        r"\bparcel\s*(has\s*been\s*)?seized\b", r"\billegal\s*(drugs|items|substances|passport)\b",
+        r"पार्सल", r"ड्रग्स", r"కస్టమ్స్ పార్శిల్", r"డ్రగ్స్"
     ],
     "fake_kyc": [
-        r"\bkyc\b.*(expire|update|block|suspend)", r"\bkyc\s*has\s*expired\b",
-        r"\bkyc\s*verify\b", r"आधार", r"ఆధార్", r"ஆதார்"
+        r"\bkyc\b.*(expire|update|block|suspend|verify|pending|mandatory)", r"\bkyc\s*has\s*expired\b",
+        r"\bkyc\s*verify\b", r"\bpan\s*card\b.*(block|update|link)", r"\baadhaar\b.*(block|update|verify|linked)",
+        r"\bsim\s*card\b.*(block|deactivat)", r"आधार", r"ఆధార్", r"ఆదార్", r"ஆதார்"
     ],
     "money_demand": [
         r"\btransfer\s*money\b", r"\bsend\s*money\b", r"\bdeposit\s*money\b",
-        r"\bpay\s*(the\s*)?(fine|penalty|charges|amount)\b",
+        r"\bpay\s*(the\s*)?(fine|penalty|charges|amount|fee|tax|deposit)\b",
         r"\bpay\s*immediately\b", r"\bpay\s*(right\s*)?now\b",
-        r"\bpay\s*\d+\s*(rupees?|lakh|thousand|crore)\b",
-        r"पैसा भेजो", r"तुरंत भुगतान", r"డబ్బులు పంపు", r"పంపండి", r"பணம் அனுப்பு"
+        r"\bpay\s*\d+\s*(rupees?|lakh|thousand|crore|rs)\b",
+        r"\bsecurity\s*deposit\b", r"\bverification\s*account\b", r"\brbi\s*clearance\b",
+        r"पैसा भेजो", r"तुरंत भुगतान", r"డబ్బులు పంపు", r"పంపండి", r"చెల్లించండి", r"பணம் அனுப்பு"
     ],
     "arrest_threat": [
         r"\barrest(ed)?\b", r"\bwarrant\b", r"\bjail\b", r"\bprison\b",
-        r"\bbehind\s*bars\b", r"\bin\s*custody\b", r"\bfir\b",
+        r"\bbehind\s*bars\b", r"\bin\s*custody\b", r"\bfir\b", r"\bnon[- ]bailable\b",
         r"गिरफ्तार", r"जेल", r"वारंट", r"అరెస్ట్", r"జైలు", r"వారెంట్", r"கைது", r"ஜெயில்"
     ],
     "urgency": [
-        r"\bimmediately\b", r"\bright\s*now\b", r"\bwithin\s*\d+\s*hour\b",
-        r"\bor\s*else\b", r"\botherwise\b", r"\blast\s*chance\b",
+        r"\bimmediately\b", r"\bright\s*now\b", r"\bwithin\s*\d+\s*(hour|minute)s?\b",
+        r"\bor\s*else\b", r"\botherwise\b", r"\blast\s*(chance|warning)\b",
         r"\bno\s*time\b", r"\burgent\b", r"\btonight\b", r"\bdon.?t\s*disconnect\b",
+        r"\baccount\s*will\s*be\s*blocked\b", r"\bpower\s*will\s*be\s*cut\b",
         r"तुरंत", r"अभी", r"వెంటనే", "ఇప్పుడే", r"ఉடனே", r"இப்போதே"
     ],
     "otp_request": [
         r"\botp\b", r"\bone\s*time\s*password\b", r"\bverification\s*code\b",
         r"\bshare\s*(the\s*)?otp\b", r"\btell\s*me\s*(the\s*)?otp\b",
         r"\bgive\s*me\s*(the\s*)?otp\b", r"\bverify\s*(the\s*)?otp\b",
-        r"\bread\s*(the\s*)?code\b", r"ओटीपी", r"बताइए", r"ఓటీపీ", r"ఓటిపి",
-        r"చెప్పండి", r"ఓటీపీ చెప్పు", r"ஓடிபி", r"சொல்லுங்கள்"
+        r"\bread\s*(the\s*)?code\b", r"\b6[- ]digit\s*code\b",
+        r"ओटीपी", r"बताइए", r"ఓటీపీ", r"ఓటిపి",
+        r"చెప్పండి", r"ఓటీపీ చెప్పు", r"కోడ్", r"ஓடிபி", r"சொல்லுங்கள்"
     ],
     "remote_access": [
         r"\binstall\s*(an?\s*)?app\b", r"\banydesk\b", r"\bteamviewer\b",
-        r"\bquicksupport\b", r"\bshare\s*(your\s*)?screen\b", r"\bremote\s*access\b",
+        r"\bquicksupport\b", r"\brustdesk\b", r"\bshare\s*(your\s*)?screen\b", r"\bremote\s*access\b",
         r"एनीडेस्क", r"ఎనీడెస్క్", r"எனிடெஸ்க்"
     ],
     "upi_fraud": [
         r"\bupi\s*pin\b", r"\bscan\s*(this\s*)?qr\b", r"\benter\s*(your\s*)?upi\b",
-        r"\bupi\s*(link|payment)\b"
+        r"\bupi\s*(link|payment|request)\b", r"\benter\s*pin\s*to\s*receive\b",
+        r"\bscan\s*to\s*receive\b", r"\bcashback\s*reward\b"
     ],
     "prize_lottery": [
         r"\bcongratulations\b", r"\blucky\s*(draw|winner)\b", r"\bwon\s*(a\s*)?(prize|rupees|lakh)\b",
-        r"\bkbc\b", r"\blottery\b", r"इनाम", r"గెలుచుకున్నారు", r"பரிசு"
+        r"\bkbc\b", r"\blottery\b", r"इनाम", r"గెలుచుకున్నారు", r"బహుమతి", r"பரிசு"
+    ],
+    "electricity_bill": [
+        r"\belectricity\s*bill\b", r"\bpower\s*(cut|disconnected|supply)\b",
+        r"\belectricity\s*(office|helpline|officer)\b", r"\bbijli\s*bill\b",
+        r"కరెంట్ బిల్లు", r"విద్యుత్", r"மின் கட்டணம்"
+    ],
+    "loan_fraud": [
+        r"\bloan\s*approved\b", r"\bpre[- ]approved\s*loan\b", r"\bprocessing\s*(fee|charges)\b",
+        r"\bdisbursement\s*fee\b", r"\bloan\s*sanction\b", r"लोन", r"రుణం"
     ]
 }
 
 INDICATOR_TEXTS = {
     "fake_authority": "Caller claims to be from bank or law enforcement authority",
-    "fake_kyc": "Fake KYC expiration or updates claimed",
-    "money_demand": "Immediate money transfer or deposit demanded",
+    "digital_arrest": "Digital arrest scam attempting unauthorized video surveillance or interrogation",
+    "parcel_customs": "Fake customs/courier parcel interception containing contraband",
+    "fake_kyc": "Fake KYC expiration or urgent verification demanded",
+    "money_demand": "Immediate money transfer, deposit, or fine demanded",
     "arrest_threat": "Threat of arrest, legal prosecution, or jail",
-    "urgency": "Urgency and pressure tactics applied",
-    "otp_request": "OTP requested over phone call",
-    "remote_access": "Request to install remote access control software",
-    "upi_fraud": "UPI PIN or QR code scanning requested",
-    "prize_lottery": "Unsolicited lottery or prize winnings claimed"
+    "urgency": "Urgency and high-pressure intimidation tactics applied",
+    "otp_request": "OTP or verification code requested over phone call",
+    "remote_access": "Request to install remote screen sharing software (AnyDesk, TeamViewer)",
+    "upi_fraud": "UPI PIN entry or QR code reverse payment scam",
+    "prize_lottery": "Unsolicited lottery or prize winnings claimed",
+    "electricity_bill": "Fake electricity disconnection warning demanding payment",
+    "loan_fraud": "Advance-fee pre-approved loan scam"
 }
 
 
@@ -149,6 +237,14 @@ def classify_category(matched_cats: list, text: str) -> str:
     lower = text.lower()
     if "remote_access" in matched_cats or "anydesk" in lower or "teamviewer" in lower:
         return "REMOTE_ACCESS_REQUEST"
+    if "digital_arrest" in matched_cats or "digital arrest" in lower:
+        return "DIGITAL_ARREST_SCAM"
+    if "parcel_customs" in matched_cats or "fedex" in lower or "customs" in lower:
+        return "PARCEL_CUSTOMS_SCAM"
+    if "electricity_bill" in matched_cats or "electricity" in lower or "power" in lower:
+        return "ELECTRICITY_BILL_SCAM"
+    if "loan_fraud" in matched_cats or "loan" in lower:
+        return "LOAN_FRAUD"
     if "upi_fraud" in matched_cats or "qr code" in lower or "upi pin" in lower:
         return "UPI_FRAUD"
     if "prize_lottery" in matched_cats or "kbc" in lower or "lottery" in lower:
@@ -159,7 +255,7 @@ def classify_category(matched_cats: list, text: str) -> str:
         return "OTP_SHARING"
     if "fake_kyc" in matched_cats:
         return "FAKE_KYC"
-    if "arrest_threat" in matched_cats or "digital arrest" in lower:
+    if "arrest_threat" in matched_cats:
         return "FAKE_AUTHORITY"
     if "fake_authority" in matched_cats:
         return "FAKE_BANK_CALL"
@@ -172,11 +268,14 @@ def classify_category(matched_cats: list, text: str) -> str:
 
 def classify_transcript(transcript: str) -> dict:
     text = (transcript or "").strip()
-    language_label = detect_transcript_language(text)
+    language_label, detected_langs, is_multi = detect_transcript_languages(text)
 
     if not text:
         return {
             "Language": language_label,
+            "language": language_label,
+            "detected_languages": detected_langs,
+            "is_multilingual": is_multi,
             "Classification": "NORMAL_CALL",
             "Category": "NORMAL_CALL",
             "Risk Level": "LOW",
@@ -195,6 +294,9 @@ def classify_transcript(transcript: str) -> dict:
     if is_legitimate_warning(text):
         return {
             "Language": language_label,
+            "language": language_label,
+            "detected_languages": detected_langs,
+            "is_multilingual": is_multi,
             "Classification": "LEGITIMATE_SECURITY_WARNING",
             "Category": "LEGITIMATE_SECURITY_WARNING",
             "Risk Level": "LOW",
@@ -231,24 +333,50 @@ def classify_transcript(transcript: str) -> dict:
     is_money = "money_demand" in matched_cats
     is_kyc = "fake_kyc" in matched_cats
     is_arrest = "arrest_threat" in matched_cats
+    is_digital_arrest = "digital_arrest" in matched_cats
+    is_parcel = "parcel_customs" in matched_cats
+    is_remote = "remote_access" in matched_cats
+    is_upi = "upi_fraud" in matched_cats
+    is_prize = "prize_lottery" in matched_cats
+    is_util = "electricity_bill" in matched_cats
+    is_loan = "loan_fraud" in matched_cats
 
     context_scam_score = 0.0
+
+    # Severe high-risk triggers
+    if is_remote:
+        context_scam_score = max(context_scam_score, 94.0)
+    if is_upi:
+        context_scam_score = max(context_scam_score, 92.0)
+    if is_digital_arrest or (is_arrest and (is_auth or is_urgency or is_money)):
+        context_scam_score = max(context_scam_score, 95.0)
+    if is_parcel:
+        context_scam_score = max(context_scam_score, 92.0)
+    if is_prize:
+        context_scam_score = max(context_scam_score, 88.0)
+    if is_util and (is_urgency or is_money):
+        context_scam_score = max(context_scam_score, 90.0)
+    elif is_util:
+        context_scam_score = max(context_scam_score, 78.0)
+    if is_loan and (is_money or is_urgency):
+        context_scam_score = max(context_scam_score, 88.0)
+
     if is_otp and (is_auth or is_urgency or is_kyc):
-        context_scam_score += 90.0
-        if "Verification pressure" not in detected_indicators:
+        context_scam_score = max(context_scam_score, 94.0)
+        if "Verification pressure applied" not in detected_indicators:
             detected_indicators.append("Verification pressure applied")
     elif is_otp:
-        context_scam_score += 75.0
+        context_scam_score = max(context_scam_score, 80.0)
 
     if is_auth and (is_money or is_arrest or is_urgency):
-        context_scam_score += 90.0
+        context_scam_score = max(context_scam_score, 92.0)
     elif is_auth:
-        context_scam_score += 65.0
+        context_scam_score = max(context_scam_score, 70.0)
 
     if is_kyc and (is_urgency or is_money):
-        context_scam_score += 85.0
+        context_scam_score = max(context_scam_score, 88.0)
     elif is_kyc:
-        context_scam_score += 60.0
+        context_scam_score = max(context_scam_score, 68.0)
 
     # ── 3. ML Model Prediction ──────────────────────────────────────────────────
     ml_score = 0.0
@@ -307,6 +435,9 @@ def classify_transcript(transcript: str) -> dict:
 
     return {
         "Language": language_label,
+        "language": language_label,
+        "detected_languages": detected_langs,
+        "is_multilingual": is_multi,
         "Classification": classification,
         "Category": category,
         "Risk Level": risk_level,
